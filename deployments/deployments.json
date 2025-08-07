@@ -1,0 +1,36 @@
+{
+  "contracts": {
+    "SimpleVault": {
+      "sepolia": {
+        "address": "0xaaaac415c0719cff6BAe3816FE244589442db46C",
+        "chainId": 11155111,
+        "deploymentBlock": 7011573
+      },
+      "seiTestnet": {
+        "address": "0xaaaac415c0719cff6BAe3816FE244589442db46C",
+        "chainId": 1328,
+        "deploymentBlock": 137259626
+      }
+    }
+  },
+  "testTokens": {
+    "USDC": {
+      "sepolia": {
+        "address": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+        "decimals": 6
+      },
+      "seiTestnet": {
+        "address": "0x4fCF1784B31630811181f670Aea7A7bEF803eaED",
+        "decimals": 6
+      }
+    }
+  },
+  "rpcEndpoints": {
+    "sepolia": "https://ethereum-sepolia-rpc.publicnode.com",
+    "seiTestnet": "https://evm-rpc-testnet.sei-apis.com"
+  },
+  "blockExplorers": {
+    "sepolia": "https://sepolia.etherscan.io",
+    "seiTestnet": "https://seitrace.com/?chain=testnet"
+  }
+}
