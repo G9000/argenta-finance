@@ -1,6 +1,5 @@
 import type { Address } from 'viem'
-import { sepolia } from 'viem/chains'
-import { seiTestnet, type SupportedChainId } from '@/lib/chains'
+import { sepolia, seiTestnet, type SupportedChainId } from '@/lib/chains'
 
 export const SIMPLE_VAULT_ADDRESS_BY_CHAIN_ID = {
   [sepolia.id]: '0xaaaac415c0719cff6BAe3816FE244589442db46C',
