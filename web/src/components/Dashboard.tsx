@@ -10,6 +10,36 @@ import {
 import { useReadSimpleVaultGetBalance } from '@/generated/wagmi'
 import { formatBalance } from '@/lib/format'
 
+
+export function Dashboard() {
+  const { address } = useAccount()
+
+  return (
+    <div className="w-full max-w-4xl">
+
+
+      {!address ? (
+        <div>
+          <div className="text-lg">Connect Your Wallet</div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {appChains.map((chain) => (
+            <ChainBalanceRow
+              key={chain.id}
+              chainId={chain.id}
+              chainName={chain.name}
+            />
+          ))}
+    
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+
 function ChainBalanceRow({ chainId, chainName }: { chainId: number; chainName: string }) {
   const { address: walletAddress } = useAccount()
 
@@ -33,64 +63,48 @@ function ChainBalanceRow({ chainId, chainName }: { chainId: number; chainName: s
   })
 
   return (
-    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-      <div className="font-medium">{chainName}</div>
-      <div className="flex gap-8 text-sm">
-        <div>
-          <span className="text-gray-500">Wallet: </span>
-          <span className="font-mono">
-            {walletLoading ? (
-              <span className="text-blue-600">Loading...</span>
-            ) : walletError ? (
-              <span className="text-red-600">Error</span>
-            ) : (
-              `${formatBalance(walletBalance)} USDC`
-            )}
-          </span>
+    <div className="grid gap-5 border border-white/10 p-5">
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h3 className="font-semibold text-white font-mono uppercase">{chainName}</h3>
         </div>
-        <div>
-          <span className="text-gray-500">Vault: </span>
-          <span className="font-mono">
+        <div className="text-xs text-gray-400 uppercase tracking-wide">USDC</div>
+      </div>
+      
+
+      <div className='flex items-center gap-10'>
+        <div className="grid gap-1">
+          <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+            Deposited in Vault
+          </div>
+          <div className="font-mono text-xl text-white">
             {vaultLoading ? (
-              <span className="text-blue-600">Loading...</span>
+              <div className="text-gray-500">Loading...</div>
             ) : vaultError ? (
-              <span className="text-red-600">Error</span>
+              <div className="text-gray-500">—</div>
             ) : (
-              `${formatBalance(vaultBalance)} USDC`
+              formatBalance(vaultBalance)
             )}
-          </span>
+          </div>
         </div>
+
+        <div className="grid gap-1">
+          <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+            Available to deposit
+          </div>
+          <div className="font-mono text-xl text-white">
+            {walletLoading ? (
+              <div className="text-gray-500">Loading...</div>
+            ) : vaultError ? (
+              <div className="text-gray-500">—</div>
+            ) : (
+              formatBalance(walletBalance)
+            )}
+          </div>
+        </div>
+      
       </div>
-    </div>
-  )
-}
-
-export function Dashboard() {
-  const { address } = useAccount()
-
-
-  return (
-    <div className="w-full max-w-4xl">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-2">Portfolio Dashboard</h2>
-        <p>View your USDC balances across all supported chains</p>
-      </div>
-
-      {!address ? (
-        <div>
-          <p>Connect your wallet to view balances</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {appChains.map((chain) => (
-            <ChainBalanceRow
-              key={chain.id}
-              chainId={chain.id}
-              chainName={chain.name}
-            />
-          ))}
-        </div>
-      )}
     </div>
   )
 }

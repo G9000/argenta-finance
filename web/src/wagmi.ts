@@ -7,14 +7,12 @@ import {
 } from '@rainbow-me/rainbowkit/wallets';
 import { appChains } from "@/lib/chains";
 
-if (!process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) {
+const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+if (!walletConnectProjectId) {
   throw new Error(
     "Environment variable NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID must be defined"
   );
 }
-
-const walletConnectProjectId =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
 
 export const wagmiConfig = getDefaultConfig({
   appName: "Argenta",
