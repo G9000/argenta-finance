@@ -9,36 +9,31 @@ export function formatBalance(
   if (!balance || balance === BigInt(0)) return '0.00'
   
   try {
-    // Clamp display decimals to actual token decimals
     const d = Math.min(displayDecimals, decimals)
     
-    // Get full precision string
+
     const formatted = formatUnits(balance, decimals)
     const parts = formatted.split('.')
     const wholePart = parts[0] || '0'
     const decimalPart = parts[1] || '00'
     
-    // String-length check avoids any float conversion
-    if (wholePart.length > 15) {
-      // Very large number - use truncation to preserve precision
-      const displayDecimalPart = decimalPart.slice(0, d).padEnd(d, '0')
-      // Keep it purely string-based - avoid Number() conversion for huge values
-      const formattedWhole = wholePart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-      return `${formattedWhole}.${displayDecimalPart}`
+    // All cases: keep it string-based to preserve precision
+    const displayDecimalPart = decimalPart.slice(0, d).padEnd(d, '0')
+    
+    // Check for tiny non-zero values using string comparison
+    const hasSignificantValue = wholePart !== '0' || decimalPart.slice(0, d).match(/[1-9]/)
+    if (!hasSignificantValue) {
+      // All digits in display range are zero, but original might be non-zero
+      const hasAnyNonZero = decimalPart.match(/[1-9]/)
+      if (hasAnyNonZero) {
+        const threshold = '0.' + '0'.repeat(d - 1) + '1'
+        return `< ${threshold}`
+      }
     }
     
-    // Normal case: safe to use parseFloat for rounding
-    const num = parseFloat(formatted)
-    
-    // Check for tiny non-zero values
-    if (num > 0 && num < Math.pow(10, -d)) {
-      return `< ${Math.pow(10, -d).toFixed(d)}`
-    }
-    
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: d,
-      maximumFractionDigits: d
-    }).format(num)
+    // Format with thousand separators using regex
+    const formattedWhole = wholePart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    return `${formattedWhole}.${displayDecimalPart}`
 
   } catch (error) {
     console.error('Error formatting balance:', error)
