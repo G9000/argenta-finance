@@ -68,6 +68,7 @@ function ChainBalanceRow({ chainId, chainName }: { chainId: number; chainName: s
 export function Dashboard() {
   const { address } = useAccount()
 
+
   return (
     <div className="w-full max-w-4xl">
       <div className="mb-6">
