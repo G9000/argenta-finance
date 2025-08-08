@@ -6,6 +6,7 @@
     "generate": "wagmi generate -c wagmi.config.ts",
     "predev": "pnpm generate",
     "prebuild": "pnpm generate",
+    "postinstall": "pnpm generate",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
