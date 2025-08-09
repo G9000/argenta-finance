@@ -2,36 +2,82 @@
 
 import { useAccount, useReadContract } from 'wagmi'
 import { erc20Abi } from 'viem'
-import { appChains } from '@/lib/chains'
-import {
-  getSimpleVaultAddress,
-  getUsdcAddress,
-} from '@/lib/contracts'
 import { useReadSimpleVaultGetBalance } from '@/generated/wagmi'
+import {
+  SupportedChainId,
+  getUsdcAddress,
+  getVaultAddress,
+  getChainName,
+} from '@/lib/contracts'
 import { formatBalance } from '@/lib/format'
+import { usePortfolioTotals } from '@/hooks/usePortfolioTotals'
 
 
 export function Dashboard() {
   const { address } = useAccount()
+  const portfolioTotals = usePortfolioTotals()
+
+  console.log('Portfolio Totals:', portfolioTotals)
 
   return (
     <div className="w-full max-w-4xl">
-
-
       {!address ? (
         <div>
           <div className="text-lg">Connect Your Wallet</div>
         </div>
       ) : (
         <div className="space-y-4">
-          {appChains.map((chain) => (
-            <ChainBalanceRow
-              key={chain.id}
-              chainId={chain.id}
-              chainName={chain.name}
-            />
-          ))}
-    
+          <div className="grid gap-5 border border-white/10 p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h3 className="font-semibold text-white font-mono uppercase">Portfolio Summary</h3>
+              </div>
+              <div className="text-xs text-gray-400 uppercase tracking-wide">USDC</div>
+            </div>
+            
+            <div className='flex items-center gap-10'>
+              <div className="grid gap-1">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                  Total in Vaults
+                </div>
+                <div className="font-mono text-xl text-white">
+                  {formatBalance(portfolioTotals.totalVault)}
+                </div>
+              </div>
+
+              <div className="grid gap-1">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                  Total in Wallets
+                </div>
+                <div className="font-mono text-xl text-white">
+                  {formatBalance(portfolioTotals.totalWallet)}
+                </div>
+              </div>
+
+              <div className="grid gap-1">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                  Total Portfolio
+                </div>
+                <div className="font-mono text-xl text-white">
+                  {formatBalance(portfolioTotals.totalPortfolio)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-white mb-1">Chain Breakdown</h2>
+            <p className="text-gray-400 text-sm">Individual balances per network</p>
+          </div>
+          
+          <ChainBalanceRow
+            chainId={SupportedChainId.ETH_SEPOLIA}
+            chainName={getChainName(SupportedChainId.ETH_SEPOLIA)}
+          />
+          <ChainBalanceRow
+            chainId={SupportedChainId.SEI_TESTNET}
+            chainName={getChainName(SupportedChainId.SEI_TESTNET)}
+          />
         </div>
       )}
     </div>
@@ -40,11 +86,11 @@ export function Dashboard() {
 
 
 
-function ChainBalanceRow({ chainId, chainName }: { chainId: number; chainName: string }) {
+function ChainBalanceRow({ chainId, chainName }: { chainId: SupportedChainId; chainName: string }) {
   const { address: walletAddress } = useAccount()
 
-  const usdcAddress = getUsdcAddress(chainId as (typeof appChains)[number]['id'])
-  const vaultAddress = getSimpleVaultAddress(chainId as (typeof appChains)[number]['id'])
+  const usdcAddress = getUsdcAddress(chainId)
+  const vaultAddress = getVaultAddress(chainId)
 
   const { data: walletBalance, isLoading: walletLoading, error: walletError } = useReadContract({
     chainId,
@@ -54,6 +100,7 @@ function ChainBalanceRow({ chainId, chainName }: { chainId: number; chainName: s
     args: walletAddress ? [walletAddress] : undefined,
     query: { enabled: Boolean(walletAddress) },
   })
+
 
   const { data: vaultBalance, isLoading: vaultLoading, error: vaultError } = useReadSimpleVaultGetBalance({
     chainId,
