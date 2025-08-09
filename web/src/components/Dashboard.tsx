@@ -2,28 +2,35 @@
 
 import { useAccount, useReadContract } from 'wagmi'
 import { erc20Abi } from 'viem'
-import { appChains } from '@/lib/chains'
+import { useReadSimpleVaultGetBalance } from '@/generated/wagmi'
+import { appChains, type SupportedChainId } from '@/lib/chains'
 import {
   getSimpleVaultAddress,
   getUsdcAddress,
 } from '@/lib/contracts'
-import { useReadSimpleVaultGetBalance } from '@/generated/wagmi'
 import { formatBalance } from '@/lib/format'
+import { usePortfolioTotals } from '@/hooks/usePortfolioTotals'
 
 
 export function Dashboard() {
   const { address } = useAccount()
+  const portfolioTotals = usePortfolioTotals()
+
+  console.log('Portfolio Totals:', portfolioTotals)
 
   return (
     <div className="w-full max-w-4xl">
-
-
       {!address ? (
         <div>
           <div className="text-lg">Connect Your Wallet</div>
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-white mb-1">Chain Breakdown</h2>
+            <p className="text-gray-400 text-sm">Individual balances per network</p>
+          </div>
+          
           {appChains.map((chain) => (
             <ChainBalanceRow
               key={chain.id}
@@ -31,7 +38,6 @@ export function Dashboard() {
               chainName={chain.name}
             />
           ))}
-    
         </div>
       )}
     </div>
@@ -40,11 +46,11 @@ export function Dashboard() {
 
 
 
-function ChainBalanceRow({ chainId, chainName }: { chainId: number; chainName: string }) {
+function ChainBalanceRow({ chainId, chainName }: { chainId: SupportedChainId; chainName: string }) {
   const { address: walletAddress } = useAccount()
 
-  const usdcAddress = getUsdcAddress(chainId as (typeof appChains)[number]['id'])
-  const vaultAddress = getSimpleVaultAddress(chainId as (typeof appChains)[number]['id'])
+  const usdcAddress = getUsdcAddress(chainId)
+  const vaultAddress = getSimpleVaultAddress(chainId)
 
   const { data: walletBalance, isLoading: walletLoading, error: walletError } = useReadContract({
     chainId,
@@ -54,6 +60,7 @@ function ChainBalanceRow({ chainId, chainName }: { chainId: number; chainName: s
     args: walletAddress ? [walletAddress] : undefined,
     query: { enabled: Boolean(walletAddress) },
   })
+
 
   const { data: vaultBalance, isLoading: vaultLoading, error: vaultError } = useReadSimpleVaultGetBalance({
     chainId,
