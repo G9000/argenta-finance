@@ -3,10 +3,11 @@
 import { useAccount, useReadContract } from 'wagmi'
 import { erc20Abi } from 'viem'
 import { useReadSimpleVaultGetBalance } from '@/generated/wagmi'
-import { appChains, type SupportedChainId } from '@/lib/chains'
 import {
-  getSimpleVaultAddress,
+  SupportedChainId,
   getUsdcAddress,
+  getVaultAddress,
+  getChainName,
 } from '@/lib/contracts'
 import { formatBalance } from '@/lib/format'
 import { usePortfolioTotals } from '@/hooks/usePortfolioTotals'
@@ -26,18 +27,57 @@ export function Dashboard() {
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="grid gap-5 border border-white/10 p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h3 className="font-semibold text-white font-mono uppercase">Portfolio Summary</h3>
+              </div>
+              <div className="text-xs text-gray-400 uppercase tracking-wide">USDC</div>
+            </div>
+            
+            <div className='flex items-center gap-10'>
+              <div className="grid gap-1">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                  Total in Vaults
+                </div>
+                <div className="font-mono text-xl text-white">
+                  {formatBalance(portfolioTotals.totalVault)}
+                </div>
+              </div>
+
+              <div className="grid gap-1">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                  Total in Wallets
+                </div>
+                <div className="font-mono text-xl text-white">
+                  {formatBalance(portfolioTotals.totalWallet)}
+                </div>
+              </div>
+
+              <div className="grid gap-1">
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                  Total Portfolio
+                </div>
+                <div className="font-mono text-xl text-white">
+                  {formatBalance(portfolioTotals.totalPortfolio)}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="mb-4">
             <h2 className="text-lg font-semibold text-white mb-1">Chain Breakdown</h2>
             <p className="text-gray-400 text-sm">Individual balances per network</p>
           </div>
           
-          {appChains.map((chain) => (
-            <ChainBalanceRow
-              key={chain.id}
-              chainId={chain.id}
-              chainName={chain.name}
-            />
-          ))}
+          <ChainBalanceRow
+            chainId={SupportedChainId.ETH_SEPOLIA}
+            chainName={getChainName(SupportedChainId.ETH_SEPOLIA)}
+          />
+          <ChainBalanceRow
+            chainId={SupportedChainId.SEI_TESTNET}
+            chainName={getChainName(SupportedChainId.SEI_TESTNET)}
+          />
         </div>
       )}
     </div>
@@ -50,7 +90,7 @@ function ChainBalanceRow({ chainId, chainName }: { chainId: SupportedChainId; ch
   const { address: walletAddress } = useAccount()
 
   const usdcAddress = getUsdcAddress(chainId)
-  const vaultAddress = getSimpleVaultAddress(chainId)
+  const vaultAddress = getVaultAddress(chainId)
 
   const { data: walletBalance, isLoading: walletLoading, error: walletError } = useReadContract({
     chainId,
