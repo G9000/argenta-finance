@@ -40,3 +40,6 @@ export type {
   UseVaultDepositParams,
   UseVaultDepositReturn,
 } from "./useVaultDeposit";
+
+// Batch operation hooks
+export { useBatchDepositValidation } from "./useBatchDepositValidation";

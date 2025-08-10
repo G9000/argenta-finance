@@ -1,10 +1,47 @@
+import { SupportedChainId } from "@/lib/contracts";
+
 export const OPERATION_TYPES = {
   DEPOSIT: "deposit",
   WITHDRAW: "withdraw",
+  BATCH_DEPOSIT: "batch_deposit",
 } as const;
 
 export type OperationType =
   (typeof OPERATION_TYPES)[keyof typeof OPERATION_TYPES];
+
+// Batch Deposit Types
+export interface ChainDepositAmount {
+  chainId: SupportedChainId;
+  amount: string;
+}
+
+export interface BatchDepositState {
+  inputs: Record<SupportedChainId, string>;
+  isValid: boolean;
+  totalAmount: string;
+  errors: Record<SupportedChainId, string[]>;
+  warnings: Record<SupportedChainId, string[]>;
+}
+
+export interface ChainOperationStatus {
+  chainId: SupportedChainId;
+  status: "pending" | "approving" | "depositing" | "completed" | "failed";
+  approveTxHash?: string;
+  depositTxHash?: string;
+  error?: string;
+  canRetry?: boolean;
+}
+
+export interface BatchDepositProgress {
+  totalSteps: number;
+  currentStep: number;
+  percentage: number;
+  currentChain?: SupportedChainId;
+  currentOperation?: "approval" | "deposit";
+  chainStatuses: ChainOperationStatus[];
+  isComplete: boolean;
+  hasFailures: boolean;
+}
 
 export const SUPPORTED_TOKENS = {
   USDC: {

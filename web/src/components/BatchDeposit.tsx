@@ -21,10 +21,13 @@ import {
   useChainBalances,
   useOperationValidation,
   useVaultDeposit,
+  useBatchDepositValidation,
 } from "@/hooks";
 import { BalanceDisplay } from "./BalanceDisplay";
 import { OperationInput } from "./OperationInput";
 import { OperationTabs } from "./OperationTabs";
+import { BatchDepositInput } from "./BatchDepositInput";
+import { BatchOperationProgress } from "./BatchOperationProgress";
 import { getTokenLogo } from "@/lib/tokens";
 import { OPERATION_TYPES, OperationType } from "@/types/operations";
 import { createComponentLogger } from "@/lib/logger";
@@ -47,6 +50,10 @@ export function BatchDeposit() {
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
 
+  // Batch deposit state
+  const [showBatchProgress, setShowBatchProgress] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<any>(null); // We'll type this properly later
+
   const [selectedChainId, setSelectedChainId] = useState<SupportedChainId>(
     isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
   );
@@ -54,6 +61,15 @@ export function BatchDeposit() {
   const [isClient, setIsClient] = useState(false);
 
   const { switchChain, isPending: isSwitching } = useSwitchChain();
+
+  // Batch deposit validation
+  const {
+    batchState,
+    updateAmount: updateBatchAmount,
+    setMaxAmount: setBatchMaxAmount,
+    clearAll: clearBatchAmounts,
+    getValidChainAmounts,
+  } = useBatchDepositValidation();
 
   const {
     isOperationActive,
@@ -153,6 +169,29 @@ export function BatchDeposit() {
 
   const handleDeposit = () => {
     executeDeposit(depositAmount);
+  };
+
+  const handleBatchDeposit = () => {
+    const validAmounts = getValidChainAmounts();
+    if (validAmounts.length === 0) return;
+
+    logger.debug("Starting batch deposit for", validAmounts.length, "chains");
+    // TODO: Implement actual batch execution logic
+
+    // For now, show mock progress
+    setShowBatchProgress(true);
+    setBatchProgress({
+      totalSteps: validAmounts.length * 2,
+      currentStep: 1,
+      percentage: 0,
+      chainStatuses: validAmounts.map(({ chainId }) => ({
+        chainId,
+        status: "pending" as const,
+        canRetry: false,
+      })),
+      isComplete: false,
+      hasFailures: false,
+    });
   };
 
   const handleWithdraw = () => {
@@ -269,6 +308,17 @@ export function BatchDeposit() {
                 />
               )}
             </div>
+          ) : activeTab === OPERATION_TYPES.BATCH_DEPOSIT ? (
+            <div className="space-y-4">
+              <BatchDepositInput
+                batchState={batchState}
+                onAmountChange={updateBatchAmount}
+                onMaxClick={setBatchMaxAmount}
+                onExecuteBatch={handleBatchDeposit}
+                disabled={isSwitching}
+                isProcessing={showBatchProgress && !batchProgress?.isComplete}
+              />
+            </div>
           ) : (
             <OperationInput
               type={OPERATION_TYPES.WITHDRAW}
@@ -283,6 +333,22 @@ export function BatchDeposit() {
             />
           )}
         </OperationTabs>
+
+        {/* Batch Operation Progress Modal */}
+        {showBatchProgress && batchProgress && (
+          <BatchOperationProgress
+            progress={batchProgress}
+            onDismiss={() => {
+              setShowBatchProgress(false);
+              setBatchProgress(null);
+              clearBatchAmounts();
+            }}
+            onCancelBatch={() => {
+              setShowBatchProgress(false);
+              setBatchProgress(null);
+            }}
+          />
+        )}
       </div>
     </div>
   );
