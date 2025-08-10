@@ -19,16 +19,14 @@ export interface UseTokenApprovalParams {
 export interface UseTokenApprovalReturn {
   currentAllowance: bigint | undefined;
   isApproving: boolean;
-  approveTxHash: `0x${string}` | undefined;
+  approveTxHash: string | undefined;
   isApprovalConfirmed: boolean;
-  approveError: unknown;
-  allowanceError: unknown;
+  approveError: any;
+  allowanceError: any;
   approveToken: (amount: bigint) => void;
-  revokeApproval: () => void;
-  refetchAllowance: () => Promise<unknown>;
+  refetchAllowance: () => void;
   resetApproval: () => void;
-  needsApproval: (amount: bigint) => boolean | undefined;
-  hasInfiniteApproval: () => boolean;
+  needsApproval: (amount: bigint) => boolean;
 }
 
 export function useTokenApproval({
@@ -39,6 +37,7 @@ export function useTokenApproval({
 }: UseTokenApprovalParams): UseTokenApprovalReturn {
   const { address } = useAccount();
 
+  // Check token allowance
   const {
     data: currentAllowance,
     refetch: refetchAllowance,
@@ -54,6 +53,7 @@ export function useTokenApproval({
     },
   });
 
+  // Token approval hook
   const {
     writeContract: approveToken,
     isPending: isApproving,
@@ -62,21 +62,21 @@ export function useTokenApproval({
     reset: resetApproval,
   } = useWriteContract();
 
+  // Wait for approval transaction
   const { isSuccess: isApprovalConfirmed } = useWaitForTransactionReceipt({
     hash: approveTxHash,
     chainId,
   });
 
+  // Check if approval is needed
   const needsApproval = useCallback(
-    (amount: bigint): boolean | undefined => {
-      if (currentAllowance === undefined) {
-        return undefined;
-      }
-      return currentAllowance < amount;
+    (amount: bigint): boolean => {
+      return !currentAllowance || currentAllowance < amount;
     },
     [currentAllowance]
   );
 
+  // Approve token spending
   const handleApproveToken = useCallback(
     (amount: bigint) => {
       validateOrThrow(
@@ -84,6 +84,7 @@ export function useTokenApproval({
         "Approval amount validation failed"
       );
 
+      // Use infinite approval MAX_UINT256 or exact amount based on configuration
       const approvalAmount = useInfiniteApproval ? maxUint256 : amount;
 
       approveToken({
@@ -97,22 +98,6 @@ export function useTokenApproval({
     [approveToken, chainId, tokenAddress, spenderAddress, useInfiniteApproval]
   );
 
-  const revokeApproval = useCallback(() => {
-    approveToken({
-      chainId,
-      address: tokenAddress,
-      abi: erc20Abi,
-      functionName: "approve",
-      args: [spenderAddress, 0n],
-    });
-  }, [approveToken, chainId, tokenAddress, spenderAddress]);
-
-  const hasInfiniteApproval = useCallback((): boolean => {
-    if (!currentAllowance) return false;
-    const threshold = (maxUint256 * 9n) / 10n;
-    return currentAllowance >= threshold;
-  }, [currentAllowance]);
-
   return {
     currentAllowance,
     isApproving,
@@ -121,10 +106,8 @@ export function useTokenApproval({
     approveError,
     allowanceError,
     approveToken: handleApproveToken,
-    revokeApproval,
     refetchAllowance,
     resetApproval,
     needsApproval,
-    hasInfiniteApproval,
   };
 }

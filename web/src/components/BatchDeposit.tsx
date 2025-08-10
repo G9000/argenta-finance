@@ -67,12 +67,10 @@ export function BatchDeposit() {
     isDepositConfirmed,
     depositError,
     currentAllowance,
-    hasInfiniteApproval,
     progress,
     executeDeposit,
     resetDeposit: resetDepositOperation,
     clearError: clearDepositError,
-    revokeApproval,
   } = useVaultDeposit({
     chainId: selectedChainId,
     onDepositComplete: (amount) => {
@@ -269,34 +267,6 @@ export function BatchDeposit() {
                     Chain: getChainName(selectedChainId),
                   }}
                 />
-              )}
-
-              {isClient && currentAllowance && currentAllowance > 0n && (
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-medium text-yellow-800">
-                        Token Approval Status
-                      </h4>
-                      <p className="text-sm text-yellow-700">
-                        {hasInfiniteApproval
-                          ? "You have infinite approval enabled"
-                          : `Current approval: ${formatBalance(
-                              currentAllowance,
-                              USDC_DECIMALS,
-                              2
-                            )} USDC`}
-                      </p>
-                    </div>
-                    <button
-                      onClick={revokeApproval}
-                      disabled={isApproving || isDepositing}
-                      className="px-3 py-1 text-sm bg-yellow-100 text-yellow-800 border border-yellow-300 rounded hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isApproving ? "Revoking..." : "Revoke Approval"}
-                    </button>
-                  </div>
-                </div>
               )}
             </div>
           ) : (
