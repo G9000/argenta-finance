@@ -1,14 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  useAccount,
-  useChainId,
-  useSwitchChain,
-  useReadContract,
-  useWriteContract,
-  useWaitForTransactionReceipt,
-} from "wagmi";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import {
   getChainName,
   isSupportedChainId,
@@ -19,7 +12,11 @@ import {
   getVaultAddress,
 } from "@/lib/contracts";
 import { formatBalance } from "@/lib/format";
-import { useChainBalances, useOperationValidation } from "@/hooks";
+import {
+  useChainBalances,
+  useOperationValidation,
+  useVaultDeposit,
+} from "@/hooks";
 import { cn } from "@/lib/utils";
 import { BalanceDisplay } from "./BalanceDisplay";
 import { OperationInput } from "./OperationInput";
@@ -27,20 +24,9 @@ import { OperationTabs } from "./OperationTabs";
 import { getTokenLogo, getChainLogo } from "@/lib/tokens";
 import { OPERATION_TYPES, OperationType } from "@/types/operations";
 import Image from "next/image";
-import { parseUnits, erc20Abi } from "viem";
-import { useWriteSimpleVaultDeposit } from "@/generated/wagmi";
 import { createComponentLogger } from "@/lib/logger";
 
 const logger = createComponentLogger("BatchDeposit");
-
-const PROGRESS_PERCENTAGES = {
-  APPROVAL_REQUESTED: "25%",
-  APPROVAL_PENDING: "40%",
-  APPROVAL_CONFIRMED: "60%",
-  DEPOSIT_REQUESTED: "75%",
-  DEPOSIT_PENDING: "85%",
-  DEPOSIT_CONFIRMED: "100%",
-} as const;
 
 export function BatchDeposit() {
   const { address } = useAccount();
@@ -51,139 +37,42 @@ export function BatchDeposit() {
   );
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [isOperationActive, setIsOperationActive] = useState(false);
-  const [depositOperationError, setDepositOperationError] = useState<
-    string | null
-  >(null);
 
   const [selectedChainId, setSelectedChainId] = useState<SupportedChainId>(
     isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
   );
 
   const [chainLogoError, setChainLogoError] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   const { switchChain, isPending: isSwitching } = useSwitchChain();
 
-  // Get contract addresses for current chain
-  const usdcAddress = getUsdcAddress(selectedChainId);
-  const vaultAddress = getVaultAddress(selectedChainId);
-
-  // Check USDC allowance
-  const { data: currentAllowance, refetch: refetchAllowance } = useReadContract(
-    {
-      chainId: selectedChainId,
-      address: usdcAddress,
-      abi: erc20Abi,
-      functionName: "allowance",
-      args: address ? [address, vaultAddress] : undefined,
-      query: {
-        enabled: !!address,
-      },
-    }
-  );
-
-  // USDC approval hook
   const {
-    writeContract: approveUsdc,
-    isPending: isApproving,
-    data: approveTxHash,
-    error: approveError,
-    reset: resetApprove,
-  } = useWriteContract();
-
-  // Vault deposit hook
-  const {
-    writeContract: depositToVault,
-    isPending: isDepositing,
-    data: depositTxHash,
-    error: depositError,
-    reset: resetDeposit,
-  } = useWriteSimpleVaultDeposit();
-
-  // Wait for approval transaction
-  const { isSuccess: isApprovalConfirmed } = useWaitForTransactionReceipt({
-    hash: approveTxHash,
-    chainId: selectedChainId,
-  });
-
-  // Wait for deposit transaction
-  const { isSuccess: isDepositConfirmed } = useWaitForTransactionReceipt({
-    hash: depositTxHash,
-    chainId: selectedChainId,
-  });
-
-  // Handle successful transactions
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
-
-    if (isApprovalConfirmed && depositAmount) {
-      logger.debug("Approval confirmed! Auto-proceeding with deposit...");
-
-      const amountInWei = parseUnits(depositAmount, USDC_DECIMALS);
-
-      // Refetch allowance and wait for it to complete
-      const proceedWithDeposit = async () => {
-        try {
-          await refetchAllowance();
-          depositToVault({
-            chainId: selectedChainId,
-            address: vaultAddress,
-            args: [usdcAddress, amountInWei],
-          });
-        } catch (error) {
-          // Fallback to timeout-based approach if refetch fails
-          timeoutId = setTimeout(() => {
-            depositToVault({
-              chainId: selectedChainId,
-              address: vaultAddress,
-              args: [usdcAddress, amountInWei],
-            });
-          }, 1000);
-        }
-      };
-
-      proceedWithDeposit();
-    }
-
-    // Cleanup function to clear timeout on unmount or dependency change
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [
+    isOperationActive,
+    operationError: depositOperationError,
+    isApproving,
+    approveTxHash,
     isApprovalConfirmed,
-    depositAmount,
-    selectedChainId,
-    refetchAllowance,
-    depositToVault,
-    usdcAddress,
-    vaultAddress,
-  ]);
-
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
-
-    if (isDepositConfirmed) {
-      logger.debug("Deposit confirmed! Clearing form...");
+    approveError,
+    isDepositing,
+    depositTxHash,
+    isDepositConfirmed,
+    depositError,
+    currentAllowance,
+    progress,
+    executeDeposit,
+    resetDeposit: resetDepositOperation,
+    clearError: clearDepositError,
+  } = useVaultDeposit({
+    chainId: selectedChainId,
+    onDepositComplete: (amount) => {
+      logger.debug(`Deposit of ${amount} USDC completed successfully`);
       setDepositAmount("");
-      timeoutId = setTimeout(() => setIsOperationActive(false), 3000);
-    }
-
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [isDepositConfirmed]);
-
-  useEffect(() => {
-    if (approveError || depositError) {
-      logger.debug("Error detected, resetting operation state");
-      setIsOperationActive(false);
-      setDepositOperationError(null); // Clear any previous operation errors
-    }
-  }, [approveError, depositError]);
+    },
+    onError: (error) => {
+      logger.error("Deposit operation failed:", error);
+    },
+  });
 
   // Keep selectedChainId in sync especially when switching from the nav
   useEffect(() => {
@@ -195,6 +84,11 @@ export function BatchDeposit() {
   useEffect(() => {
     setChainLogoError(false);
   }, [selectedChainId]);
+
+  // Track client-side mounting to prevent hydration mismatches
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const {
     walletBalance: {
@@ -238,18 +132,13 @@ export function BatchDeposit() {
   const handleMaxDeposit = () => {
     if (usdcBalance) {
       setDepositAmount(formatBalance(usdcBalance));
-
-      resetApprove();
-      resetDeposit();
+      resetDepositOperation();
     }
   };
 
   const handleDepositAmountChange = (amount: string) => {
     setDepositAmount(amount);
-    if (approveError) resetApprove();
-    if (depositError) resetDeposit();
-    if (approveError || depositError) setIsOperationActive(false);
-    setDepositOperationError(null); // Clear operation errors when amount changes
+    clearDepositError();
   };
 
   const handleMaxWithdraw = () => {
@@ -259,82 +148,7 @@ export function BatchDeposit() {
   };
 
   const handleDeposit = () => {
-    logger.debug(
-      "Deposit:",
-      depositAmount,
-      "USDC on",
-      getChainName(selectedChainId)
-    );
-
-    if (!depositAmount || !address) return;
-    if (isApproving || isDepositing) return;
-
-    // Clear any previous operation errors
-    setDepositOperationError(null);
-
-    // Validate depositAmount is a valid number before parsing
-    const numericAmount = parseFloat(depositAmount);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      setDepositOperationError("Please enter a valid amount greater than 0");
-      return;
-    }
-
-    // Check for valid decimal format to prevent parseUnits errors
-    if (!/^(\d+(\.\d*)?|\.\d+)$/.test(depositAmount)) {
-      setDepositOperationError("Please enter a valid number format");
-      return;
-    }
-
-    setIsOperationActive(true);
-
-    let amountInWei: bigint;
-    try {
-      amountInWei = parseUnits(depositAmount, USDC_DECIMALS);
-    } catch (error) {
-      logger.error("Failed to parse deposit amount", error);
-      setDepositOperationError(
-        "Invalid amount format. Please check your input."
-      );
-      setIsOperationActive(false);
-      return;
-    }
-
-    logger.debug("amountInWei", amountInWei);
-    logger.debug("usdcAddress", usdcAddress);
-    logger.debug("vaultAddress", vaultAddress);
-    logger.debug("currentAllowance", currentAllowance);
-
-    try {
-      const needsApproval = !currentAllowance || currentAllowance < amountInWei;
-
-      if (needsApproval) {
-        logger.debug("🔐 Requesting USDC approval for", depositAmount, "USDC");
-
-        approveUsdc({
-          chainId: selectedChainId,
-          address: usdcAddress,
-          abi: erc20Abi,
-          functionName: "approve",
-          args: [vaultAddress, amountInWei],
-        });
-
-        return;
-      }
-
-      logger.debug("💰 Executing deposit for", depositAmount, "USDC");
-
-      depositToVault({
-        chainId: selectedChainId,
-        address: vaultAddress,
-        args: [usdcAddress, amountInWei],
-      });
-    } catch (error) {
-      logger.error("Unexpected error during deposit", error);
-      setDepositOperationError(
-        "An unexpected error occurred. Please try again."
-      );
-      setIsOperationActive(false);
-    }
+    executeDeposit(depositAmount);
   };
 
   const handleWithdraw = () => {
@@ -498,32 +312,14 @@ export function BatchDeposit() {
                               <div className="flex justify-between text-xs mb-1">
                                 <span>Progress</span>
                                 <span>
-                                  {isDepositConfirmed
-                                    ? "2/2"
-                                    : depositTxHash || isDepositing
-                                    ? "2/2"
-                                    : isApprovalConfirmed
-                                    ? "1/2"
-                                    : approveTxHash
-                                    ? "1/2"
-                                    : "1/2"}
+                                  {progress.stepNumber}/{progress.totalSteps}
                                 </span>
                               </div>
                               <div className="w-full bg-gray-600 rounded-full h-1.5">
                                 <div
                                   className="bg-teal-400 h-1.5 rounded-full transition-all duration-500"
                                   style={{
-                                    width: isDepositConfirmed
-                                      ? PROGRESS_PERCENTAGES.DEPOSIT_CONFIRMED
-                                      : depositTxHash
-                                      ? PROGRESS_PERCENTAGES.DEPOSIT_PENDING
-                                      : isDepositing
-                                      ? PROGRESS_PERCENTAGES.DEPOSIT_REQUESTED
-                                      : isApprovalConfirmed
-                                      ? PROGRESS_PERCENTAGES.APPROVAL_CONFIRMED
-                                      : approveTxHash
-                                      ? PROGRESS_PERCENTAGES.APPROVAL_PENDING
-                                      : PROGRESS_PERCENTAGES.APPROVAL_REQUESTED,
+                                    width: progress.percentage,
                                   }}
                                 ></div>
                               </div>
@@ -622,19 +418,25 @@ export function BatchDeposit() {
                   </div>
                 )}
 
-                {process.env.NODE_ENV === "development" && address && (
-                  <div className="text-xs text-gray-400 font-mono space-y-1">
-                    <div>DEV Debug Info:</div>
-                    <div>Your wallet: {address}</div>
-                    <div>USDC contract: {usdcAddress}</div>
-                    <div>Vault contract: {vaultAddress}</div>
-                    <div>
-                      Current allowance:{" "}
-                      {currentAllowance?.toString() || "Loading..."}
+                {isClient &&
+                  process.env.NODE_ENV === "development" &&
+                  address && (
+                    <div className="text-xs text-gray-400 font-mono space-y-1">
+                      <div>DEV Debug Info:</div>
+                      <div>Your wallet: {address}</div>
+                      <div>
+                        USDC contract: {getUsdcAddress(selectedChainId)}
+                      </div>
+                      <div>
+                        Vault contract: {getVaultAddress(selectedChainId)}
+                      </div>
+                      <div>
+                        Current allowance:{" "}
+                        {currentAllowance?.toString() || "Loading..."}
+                      </div>
+                      <div>Chain: {getChainName(selectedChainId)}</div>
                     </div>
-                    <div>Chain: {getChainName(selectedChainId)}</div>
-                  </div>
-                )}
+                  )}
               </div>
             ) : (
               <OperationInput

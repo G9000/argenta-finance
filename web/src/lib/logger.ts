@@ -6,34 +6,34 @@ interface Logger {
 }
 
 export function createLogger(prefix: string, enabled?: boolean): Logger {
-  const isDevelopment = process.env.NODE_ENV === "development";
-  const isEnabled = enabled !== undefined ? enabled : isDevelopment;
-
   const formatMessage = (message: string) => `[${prefix}] ${message}`;
+
+  const shouldLog = () => {
+    if (enabled !== undefined) return enabled;
+    return (
+      typeof window !== "undefined" && process.env.NODE_ENV === "development"
+    );
+  };
 
   return {
     debug: (message: string, ...args: unknown[]) => {
-      if (isEnabled) {
+      if (shouldLog()) {
         console.log(formatMessage(message), ...args);
       }
     },
     info: (message: string, ...args: unknown[]) => {
-      if (isEnabled) {
+      if (shouldLog()) {
         console.info(formatMessage(message), ...args);
       }
     },
     warn: (message: string, ...args: unknown[]) => {
-      if (isEnabled) {
-        console.warn(formatMessage(message), ...args);
-      }
+      console.warn(formatMessage(message), ...args);
     },
     error: (message: string, error?: unknown, ...args: unknown[]) => {
-      if (isEnabled) {
-        if (error) {
-          console.error(formatMessage(message), error, ...args);
-        } else {
-          console.error(formatMessage(message), ...args);
-        }
+      if (error) {
+        console.error(formatMessage(message), error, ...args);
+      } else {
+        console.error(formatMessage(message), ...args);
       }
     },
   };
