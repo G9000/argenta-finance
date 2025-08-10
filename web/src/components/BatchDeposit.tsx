@@ -29,6 +29,18 @@ import { OPERATION_TYPES, OperationType } from "@/types/operations";
 import Image from "next/image";
 import { parseUnits, erc20Abi } from "viem";
 import { useWriteSimpleVaultDeposit } from "@/generated/wagmi";
+import { createComponentLogger } from "@/lib/logger";
+
+const logger = createComponentLogger("BatchDeposit");
+
+const PROGRESS_PERCENTAGES = {
+  APPROVAL_REQUESTED: "25%",
+  APPROVAL_PENDING: "40%",
+  APPROVAL_CONFIRMED: "60%",
+  DEPOSIT_REQUESTED: "75%",
+  DEPOSIT_PENDING: "85%",
+  DEPOSIT_CONFIRMED: "100%",
+} as const;
 
 export function BatchDeposit() {
   const { address } = useAccount();
@@ -40,6 +52,9 @@ export function BatchDeposit() {
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [isOperationActive, setIsOperationActive] = useState(false);
+  const [depositOperationError, setDepositOperationError] = useState<
+    string | null
+  >(null);
 
   const [selectedChainId, setSelectedChainId] = useState<SupportedChainId>(
     isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
@@ -99,39 +114,76 @@ export function BatchDeposit() {
 
   // Handle successful transactions
   useEffect(() => {
-    if (isApprovalConfirmed && depositAmount) {
-      console.log("Approval confirmed! Auto-proceeding with deposit...");
-      refetchAllowance();
+    let timeoutId: NodeJS.Timeout | null = null;
 
-      // Auto-trigger deposit after approval
+    if (isApprovalConfirmed && depositAmount) {
+      logger.debug("Approval confirmed! Auto-proceeding with deposit...");
+
       const amountInWei = parseUnits(depositAmount, USDC_DECIMALS);
 
-      setTimeout(() => {
-        console.log("💰 Auto-executing deposit for", depositAmount, "USDC");
-        depositToVault({
-          chainId: selectedChainId,
-          address: getVaultAddress(selectedChainId),
-          args: [getUsdcAddress(selectedChainId), amountInWei],
-        });
-      }, 1000); // Small delay to ensure allowance is updated
+      // Refetch allowance and wait for it to complete
+      const proceedWithDeposit = async () => {
+        try {
+          await refetchAllowance();
+          depositToVault({
+            chainId: selectedChainId,
+            address: vaultAddress,
+            args: [usdcAddress, amountInWei],
+          });
+        } catch (error) {
+          // Fallback to timeout-based approach if refetch fails
+          timeoutId = setTimeout(() => {
+            depositToVault({
+              chainId: selectedChainId,
+              address: vaultAddress,
+              args: [usdcAddress, amountInWei],
+            });
+          }, 1000);
+        }
+      };
+
+      proceedWithDeposit();
     }
+
+    // Cleanup function to clear timeout on unmount or dependency change
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [
     isApprovalConfirmed,
     depositAmount,
     selectedChainId,
     refetchAllowance,
     depositToVault,
+    usdcAddress,
+    vaultAddress,
   ]);
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+
     if (isDepositConfirmed) {
-      console.log("Deposit confirmed! Clearing form...");
+      logger.debug("Deposit confirmed! Clearing form...");
       setDepositAmount("");
-      // Mark operation as complete after a brief delay to show final state
-      setTimeout(() => setIsOperationActive(false), 3000);
-      // Balances will auto-refresh via useChainBalances
+      timeoutId = setTimeout(() => setIsOperationActive(false), 3000);
     }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [isDepositConfirmed]);
+
+  useEffect(() => {
+    if (approveError || depositError) {
+      logger.debug("Error detected, resetting operation state");
+      setIsOperationActive(false);
+      setDepositOperationError(null); // Clear any previous operation errors
+    }
+  }, [approveError, depositError]);
 
   // Keep selectedChainId in sync especially when switching from the nav
   useEffect(() => {
@@ -174,7 +226,7 @@ export function BatchDeposit() {
       { chainId: newChainId },
       {
         onError: (error) => {
-          console.error("Failed to switch chain:", error);
+          logger.error("Failed to switch chain:", error);
           setSelectedChainId(
             isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
           );
@@ -197,6 +249,7 @@ export function BatchDeposit() {
     if (approveError) resetApprove();
     if (depositError) resetDeposit();
     if (approveError || depositError) setIsOperationActive(false);
+    setDepositOperationError(null); // Clear operation errors when amount changes
   };
 
   const handleMaxWithdraw = () => {
@@ -206,7 +259,7 @@ export function BatchDeposit() {
   };
 
   const handleDeposit = () => {
-    console.log(
+    logger.debug(
       "Deposit:",
       depositAmount,
       "USDC on",
@@ -216,20 +269,46 @@ export function BatchDeposit() {
     if (!depositAmount || !address) return;
     if (isApproving || isDepositing) return;
 
+    // Clear any previous operation errors
+    setDepositOperationError(null);
+
+    // Validate depositAmount is a valid number before parsing
+    const numericAmount = parseFloat(depositAmount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      setDepositOperationError("Please enter a valid amount greater than 0");
+      return;
+    }
+
+    // Check for valid decimal format to prevent parseUnits errors
+    if (!/^(\d+(\.\d*)?|\.\d+)$/.test(depositAmount)) {
+      setDepositOperationError("Please enter a valid number format");
+      return;
+    }
+
     setIsOperationActive(true);
 
-    const amountInWei = parseUnits(depositAmount, USDC_DECIMALS);
+    let amountInWei: bigint;
+    try {
+      amountInWei = parseUnits(depositAmount, USDC_DECIMALS);
+    } catch (error) {
+      logger.error("Failed to parse deposit amount", error);
+      setDepositOperationError(
+        "Invalid amount format. Please check your input."
+      );
+      setIsOperationActive(false);
+      return;
+    }
 
-    console.log("amountInWei", amountInWei);
-    console.log("usdcAddress", usdcAddress);
-    console.log("vaultAddress", vaultAddress);
-    console.log("currentAllowance", currentAllowance);
+    logger.debug("amountInWei", amountInWei);
+    logger.debug("usdcAddress", usdcAddress);
+    logger.debug("vaultAddress", vaultAddress);
+    logger.debug("currentAllowance", currentAllowance);
 
     try {
       const needsApproval = !currentAllowance || currentAllowance < amountInWei;
 
       if (needsApproval) {
-        console.log("🔐 Requesting USDC approval for", depositAmount, "USDC");
+        logger.debug("🔐 Requesting USDC approval for", depositAmount, "USDC");
 
         approveUsdc({
           chainId: selectedChainId,
@@ -242,7 +321,7 @@ export function BatchDeposit() {
         return;
       }
 
-      console.log("💰 Executing deposit for", depositAmount, "USDC");
+      logger.debug("💰 Executing deposit for", depositAmount, "USDC");
 
       depositToVault({
         chainId: selectedChainId,
@@ -250,12 +329,16 @@ export function BatchDeposit() {
         args: [usdcAddress, amountInWei],
       });
     } catch (error) {
-      console.log("Unexpected error during deposit:", error);
+      logger.error("Unexpected error during deposit", error);
+      setDepositOperationError(
+        "An unexpected error occurred. Please try again."
+      );
+      setIsOperationActive(false);
     }
   };
 
   const handleWithdraw = () => {
-    console.log(
+    logger.debug(
       "Withdraw:",
       withdrawAmount,
       "USDC from",
@@ -369,14 +452,7 @@ export function BatchDeposit() {
                   onAmountChange={handleDepositAmountChange}
                   onMaxClick={handleMaxDeposit}
                   onSubmit={handleDeposit}
-                  disabled={
-                    isSwitching ||
-                    isApproving ||
-                    isDepositing ||
-                    (approveTxHash && !isApprovalConfirmed) ||
-                    (depositTxHash && !isDepositConfirmed) ||
-                    isOperationActive
-                  }
+                  disabled={isSwitching || isOperationActive}
                   token="USDC"
                   decimals={USDC_DECIMALS}
                   validation={depositValidation}
@@ -388,14 +464,17 @@ export function BatchDeposit() {
                   isApprovalConfirmed ||
                   isDepositConfirmed ||
                   approveError ||
-                  depositError) && (
+                  depositError ||
+                  depositOperationError) && (
                   <div
                     className={cn(
                       "p-3 border rounded font-mono text-sm",
 
-                      approveError &&
-                        (approveError.message?.includes("rejected") ||
-                          approveError.message?.includes("User denied"))
+                      depositOperationError
+                        ? "bg-red-500/10 border-red-500/20 text-red-400"
+                        : approveError &&
+                          (approveError.message?.includes("rejected") ||
+                            approveError.message?.includes("User denied"))
                         ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-600"
                         : depositError &&
                           (depositError.message?.includes("rejected") ||
@@ -406,134 +485,146 @@ export function BatchDeposit() {
                         : "bg-teal-500/10 border-teal-500/20"
                     )}
                   >
-                    {isOperationActive && !approveError && !depositError && (
-                      <div className="mb-3">
-                        <div className="flex justify-between text-xs mb-1">
-                          <span>Progress</span>
-                          <span>
-                            {isDepositConfirmed
-                              ? "2/2"
-                              : depositTxHash || isDepositing
-                              ? "2/2"
-                              : isApprovalConfirmed
-                              ? "1/2"
-                              : approveTxHash
-                              ? "1/2"
-                              : "1/2"}
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-600 rounded-full h-1.5">
-                          <div
-                            className="bg-teal-400 h-1.5 rounded-full transition-all duration-500"
-                            style={{
-                              width: isDepositConfirmed
-                                ? "100%"
-                                : depositTxHash
-                                ? "85%"
-                                : isDepositing
-                                ? "75%"
-                                : isApprovalConfirmed
-                                ? "60%"
-                                : approveTxHash
-                                ? "40%"
-                                : "25%",
-                            }}
-                          ></div>
-                        </div>
+                    {depositOperationError ? (
+                      <div className="text-red-400">
+                        <strong>Error:</strong> {depositOperationError}
                       </div>
-                    )}
+                    ) : (
+                      <>
+                        {isOperationActive &&
+                          !approveError &&
+                          !depositError && (
+                            <div className="mb-3">
+                              <div className="flex justify-between text-xs mb-1">
+                                <span>Progress</span>
+                                <span>
+                                  {isDepositConfirmed
+                                    ? "2/2"
+                                    : depositTxHash || isDepositing
+                                    ? "2/2"
+                                    : isApprovalConfirmed
+                                    ? "1/2"
+                                    : approveTxHash
+                                    ? "1/2"
+                                    : "1/2"}
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-600 rounded-full h-1.5">
+                                <div
+                                  className="bg-teal-400 h-1.5 rounded-full transition-all duration-500"
+                                  style={{
+                                    width: isDepositConfirmed
+                                      ? PROGRESS_PERCENTAGES.DEPOSIT_CONFIRMED
+                                      : depositTxHash
+                                      ? PROGRESS_PERCENTAGES.DEPOSIT_PENDING
+                                      : isDepositing
+                                      ? PROGRESS_PERCENTAGES.DEPOSIT_REQUESTED
+                                      : isApprovalConfirmed
+                                      ? PROGRESS_PERCENTAGES.APPROVAL_CONFIRMED
+                                      : approveTxHash
+                                      ? PROGRESS_PERCENTAGES.APPROVAL_PENDING
+                                      : PROGRESS_PERCENTAGES.APPROVAL_REQUESTED,
+                                  }}
+                                ></div>
+                              </div>
+                            </div>
+                          )}
 
-                    {isApproving && !approveTxHash && (
-                      <div>
-                        <div className="font-semibold">
-                          Step 1 of 2: Requesting Approval
-                        </div>
-                        <div className="text-xs opacity-75 mt-1">
-                          ⏳ Please confirm the approval transaction in your
-                          wallet...
-                        </div>
-                      </div>
-                    )}
-                    {approveTxHash && !isApprovalConfirmed && (
-                      <div>
-                        <div className="font-semibold">
-                          Step 1 of 2: Approval Pending
-                        </div>
-                        <div className="text-xs opacity-75 mt-1">
-                          ⏳ Waiting for transaction confirmation on{" "}
-                          {getChainName(selectedChainId)}...
-                        </div>
-                      </div>
-                    )}
-                    {isApprovalConfirmed && !isDepositing && !depositTxHash && (
-                      <div>
-                        <div className="font-semibold">
-                          ✅ Step 1 Complete: USDC Approved
-                        </div>
-                        <div className="text-xs opacity-75 mt-1">
-                          Starting deposit transaction...
-                        </div>
-                      </div>
-                    )}
-                    {isDepositing && !depositTxHash && (
-                      <div>
-                        <div className="font-semibold">
-                          Step 2 of 2: Requesting Deposit
-                        </div>
-                        <div className="text-xs opacity-75 mt-1">
-                          ⏳ Please confirm the deposit transaction in your
-                          wallet...
-                        </div>
-                      </div>
-                    )}
-                    {depositTxHash && !isDepositConfirmed && (
-                      <div>
-                        <div className="font-semibold">
-                          Step 2 of 2: Deposit Pending
-                        </div>
-                        <div className="text-xs opacity-75 mt-1">
-                          ⏳ Waiting for transaction confirmation on{" "}
-                          {getChainName(selectedChainId)}...
-                        </div>
-                      </div>
-                    )}
-                    {isDepositConfirmed && (
-                      <div>
-                        <div className="font-semibold">
-                          🎉 All Steps Complete!
-                        </div>
-                        <div className="text-xs opacity-75 mt-1">
-                          Successfully deposited {depositAmount} USDC on{" "}
-                          {getChainName(selectedChainId)}
-                        </div>
-                      </div>
-                    )}
-                    {approveError && (
-                      <div>
-                        {approveError.message?.includes("rejected") ||
-                        approveError.message?.includes("User denied") ? (
-                          <>⚠️ Approval cancelled by user</>
-                        ) : (
-                          <>❌ Approval failed: Transaction failed</>
+                        {isApproving && !approveTxHash && (
+                          <div>
+                            <div className="font-semibold">
+                              Step 1 of 2: Requesting Approval
+                            </div>
+                            <div className="text-xs opacity-75 mt-1">
+                              ⏳ Please confirm the approval transaction in your
+                              wallet...
+                            </div>
+                          </div>
                         )}
-                      </div>
-                    )}
-                    {depositError && (
-                      <div>
-                        {depositError.message?.includes("rejected") ||
-                        depositError.message?.includes("User denied") ? (
-                          <>⚠️ Deposit cancelled by user</>
-                        ) : (
-                          <>❌ Deposit failed: Transaction failed</>
+                        {approveTxHash && !isApprovalConfirmed && (
+                          <div>
+                            <div className="font-semibold">
+                              Step 1 of 2: Approval Pending
+                            </div>
+                            <div className="text-xs opacity-75 mt-1">
+                              ⏳ Waiting for transaction confirmation on{" "}
+                              {getChainName(selectedChainId)}...
+                            </div>
+                          </div>
                         )}
-                      </div>
+                        {isApprovalConfirmed &&
+                          !isDepositing &&
+                          !depositTxHash && (
+                            <div>
+                              <div className="font-semibold">
+                                ✅ Step 1 Complete: USDC Approved
+                              </div>
+                              <div className="text-xs opacity-75 mt-1">
+                                Starting deposit transaction...
+                              </div>
+                            </div>
+                          )}
+                        {isDepositing && !depositTxHash && (
+                          <div>
+                            <div className="font-semibold">
+                              Step 2 of 2: Requesting Deposit
+                            </div>
+                            <div className="text-xs opacity-75 mt-1">
+                              ⏳ Please confirm the deposit transaction in your
+                              wallet...
+                            </div>
+                          </div>
+                        )}
+                        {depositTxHash && !isDepositConfirmed && (
+                          <div>
+                            <div className="font-semibold">
+                              Step 2 of 2: Deposit Pending
+                            </div>
+                            <div className="text-xs opacity-75 mt-1">
+                              ⏳ Waiting for transaction confirmation on{" "}
+                              {getChainName(selectedChainId)}...
+                            </div>
+                          </div>
+                        )}
+                        {isDepositConfirmed && (
+                          <div>
+                            <div className="font-semibold">
+                              🎉 All Steps Complete!
+                            </div>
+                            <div className="text-xs opacity-75 mt-1">
+                              Successfully deposited {depositAmount} USDC on{" "}
+                              {getChainName(selectedChainId)}
+                            </div>
+                          </div>
+                        )}
+                        {approveError && (
+                          <div>
+                            {approveError.message?.includes("rejected") ||
+                            approveError.message?.includes("User denied") ? (
+                              <>⚠️ Approval cancelled by user</>
+                            ) : (
+                              <>❌ Approval failed: Transaction failed</>
+                            )}
+                          </div>
+                        )}
+                        {depositError && (
+                          <div>
+                            {depositError.message?.includes("rejected") ||
+                            depositError.message?.includes("User denied") ? (
+                              <>⚠️ Deposit cancelled by user</>
+                            ) : (
+                              <>❌ Deposit failed: Transaction failed</>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
 
-                {address && (
+                {process.env.NODE_ENV === "development" && address && (
                   <div className="text-xs text-gray-400 font-mono space-y-1">
-                    <div>Debug Info:</div>
+                    <div>DEV Debug Info:</div>
                     <div>Your wallet: {address}</div>
                     <div>USDC contract: {usdcAddress}</div>
                     <div>Vault contract: {vaultAddress}</div>
