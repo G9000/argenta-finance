@@ -65,9 +65,3 @@ export const VALIDATION_MESSAGES = {
       "Large transaction amount. Please double-check before proceeding",
   },
 } as const;
-
-export interface ValidationResult {
-  isValid: boolean;
-  errors: string[];
-  warnings: string[];
-}

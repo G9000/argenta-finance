@@ -8,16 +8,34 @@ import {
   SupportedChainId,
   SUPPORTED_CHAINS,
   USDC_DECIMALS,
+  getUsdcAddress,
+  getVaultAddress,
 } from "@/lib/contracts";
 import { formatBalance } from "@/lib/format";
-import { useChainBalances, useOperationValidation } from "@/hooks";
 import { cn } from "@/lib/utils";
+import {
+  getCurrentStepLabel,
+  getCurrentStepDescription,
+} from "@/lib/transaction-steps";
+import {
+  useChainBalances,
+  useOperationValidation,
+  useVaultDeposit,
+} from "@/hooks";
 import { BalanceDisplay } from "./BalanceDisplay";
 import { OperationInput } from "./OperationInput";
 import { OperationTabs } from "./OperationTabs";
-import { getTokenLogo, getChainLogo } from "@/lib/tokens";
+import { getTokenLogo } from "@/lib/tokens";
 import { OPERATION_TYPES, OperationType } from "@/types/operations";
-import Image from "next/image";
+import { createComponentLogger } from "@/lib/logger";
+import {
+  ChainSelector,
+  UserWelcomeHeader,
+  TransactionStatus,
+  DebugInfo,
+} from "./ui";
+
+const logger = createComponentLogger("BatchDeposit");
 
 export function BatchDeposit() {
   const { address } = useAccount();
@@ -33,9 +51,36 @@ export function BatchDeposit() {
     isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
   );
 
-  const [chainLogoError, setChainLogoError] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   const { switchChain, isPending: isSwitching } = useSwitchChain();
+
+  const {
+    isOperationActive,
+    operationError: depositOperationError,
+    isApproving,
+    approveTxHash,
+    isApprovalConfirmed,
+    approveError,
+    isDepositing,
+    depositTxHash,
+    isDepositConfirmed,
+    depositError,
+    currentAllowance,
+    progress,
+    executeDeposit,
+    resetDeposit: resetDepositOperation,
+    clearError: clearDepositError,
+  } = useVaultDeposit({
+    chainId: selectedChainId,
+    onDepositComplete: (amount) => {
+      logger.debug(`Deposit of ${amount} USDC completed successfully`);
+      setDepositAmount("");
+    },
+    onError: (error) => {
+      logger.error("Deposit operation failed:", error);
+    },
+  });
 
   // Keep selectedChainId in sync especially when switching from the nav
   useEffect(() => {
@@ -44,9 +89,10 @@ export function BatchDeposit() {
     }
   }, [chainId]);
 
+  // Track client-side mounting to prevent hydration mismatches
   useEffect(() => {
-    setChainLogoError(false);
-  }, [selectedChainId]);
+    setIsClient(true);
+  }, []);
 
   const {
     walletBalance: {
@@ -78,7 +124,7 @@ export function BatchDeposit() {
       { chainId: newChainId },
       {
         onError: (error) => {
-          console.error("Failed to switch chain:", error);
+          logger.error("Failed to switch chain:", error);
           setSelectedChainId(
             isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
           );
@@ -90,7 +136,13 @@ export function BatchDeposit() {
   const handleMaxDeposit = () => {
     if (usdcBalance) {
       setDepositAmount(formatBalance(usdcBalance));
+      resetDepositOperation();
     }
+  };
+
+  const handleDepositAmountChange = (amount: string) => {
+    setDepositAmount(amount);
+    clearDepositError();
   };
 
   const handleMaxWithdraw = () => {
@@ -100,17 +152,11 @@ export function BatchDeposit() {
   };
 
   const handleDeposit = () => {
-    // TODO: Implement deposit logic
-    console.log(
-      "Deposit:",
-      depositAmount,
-      "USDC on",
-      getChainName(selectedChainId)
-    );
+    executeDeposit(depositAmount);
   };
 
   const handleWithdraw = () => {
-    console.log(
+    logger.debug(
       "Withdraw:",
       withdrawAmount,
       "USDC from",
@@ -128,123 +174,115 @@ export function BatchDeposit() {
   }
 
   return (
-    <div className="space-y-4 w-full">
-      <div className="border border-teal-100/10 grid">
-        <div
-          className="grid grid-cols-2"
-          role="group"
-          aria-labelledby="chain-selector-label"
-        >
-          {SUPPORTED_CHAINS.map((chainId) => (
-            <button
-              key={chainId}
-              onClick={() => handleChainSwitch(chainId)}
-              disabled={isSwitching}
-              className={cn(
-                "p-2 text-sm font-mono uppercase",
-                selectedChainId === chainId
-                  ? "border-teal-500 bg-teal-500/40 text-teal-400"
-                  : "border-white/10 text-gray-400 hover:border-white/20",
-                isSwitching && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              {isSwitching && selectedChainId === chainId ? (
-                <div className="flex items-center gap-2">
-                  <div className="size-3 border border-current border-t-transparent rounded-full animate-spin" />
-                  Switching...
-                </div>
-              ) : (
-                getChainName(chainId)
-              )}
-            </button>
-          ))}
-        </div>
+    <div className="w-full">
+      <ChainSelector
+        chains={SUPPORTED_CHAINS}
+        selectedChainId={selectedChainId}
+        onChainChange={handleChainSwitch}
+        isSwitching={isSwitching}
+      />
 
-        <div className="grid gap-10 bg-teal-500/20 px-4 py-10">
-          <div className="relative my-10 font-mono">
-            <span className="text-[10px] text-teal-100/40">
-              WELCOME {address?.slice(0, 6)}...{address?.slice(-4)} YOU ARE
-              CURRENTLY ON {getChainName(selectedChainId).toUpperCase()}
-            </span>
-            <div className="text-4xl w-10/12 font-mono uppercase">
-              Manage your funds
-            </div>
+      <div className="grid gap-10 bg-teal-500/20 px-4 py-10">
+        <UserWelcomeHeader address={address} chainId={selectedChainId} />
 
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-70">
-              <div className="relative p-4 border border-teal-100/10 rounded-full">
-                {!chainLogoError ? (
-                  <Image
-                    src={getChainLogo(selectedChainId)}
-                    alt=""
-                    width={100}
-                    height={100}
-                    className="grayscale"
-                    onError={() => setChainLogoError(true)}
-                    onLoad={() => setChainLogoError(false)}
-                  />
-                ) : (
-                  <div className="w-[100px] h-[100px] flex items-center justify-center text-gray-400 text-xs font-mono">
-                    <div className="text-center">
-                      <div>{getChainName(selectedChainId)}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+        {address && (
+          <BalanceDisplay
+            balances={[
+              {
+                label: "Available USDC Balance",
+                value: usdcBalance,
+                logo: getTokenLogo("USDC"),
+                error: walletError?.message,
+                decimals: USDC_DECIMALS,
+              },
+              {
+                label: "USDC in Vault",
+                value: vaultBalance,
+                logo: getTokenLogo("USDC"),
+                error: vaultError?.message,
+                decimals: USDC_DECIMALS,
+              },
+            ]}
+            isLoading={isSwitching || walletLoading || vaultLoading}
+          />
+        )}
 
-          {address && (
-            <BalanceDisplay
-              balances={[
-                {
-                  label: "Available USDC Balance",
-                  value: usdcBalance,
-                  logo: getTokenLogo("USDC"),
-                  error: walletError?.message,
-                  decimals: USDC_DECIMALS,
-                },
-                {
-                  label: "USDC in Vault",
-                  value: vaultBalance,
-                  logo: getTokenLogo("USDC"),
-                  error: vaultError?.message,
-                  decimals: USDC_DECIMALS,
-                },
-              ]}
-              isLoading={isSwitching || walletLoading || vaultLoading}
-            />
-          )}
-
-          <OperationTabs activeTab={activeTab} onTabChange={setActiveTab}>
-            {activeTab === OPERATION_TYPES.DEPOSIT ? (
-              <div className="space-y-4">
-                <OperationInput
-                  type={OPERATION_TYPES.DEPOSIT}
-                  amount={depositAmount}
-                  onAmountChange={setDepositAmount}
-                  onMaxClick={handleMaxDeposit}
-                  onSubmit={handleDeposit}
-                  disabled={isSwitching}
-                  token="USDC"
-                  decimals={USDC_DECIMALS}
-                  validation={depositValidation}
-                />
-              </div>
-            ) : (
+        <OperationTabs activeTab={activeTab} onTabChange={setActiveTab}>
+          {activeTab === OPERATION_TYPES.DEPOSIT ? (
+            <div className="space-y-4">
               <OperationInput
-                type={OPERATION_TYPES.WITHDRAW}
-                amount={withdrawAmount}
-                onAmountChange={setWithdrawAmount}
-                onMaxClick={handleMaxWithdraw}
-                onSubmit={handleWithdraw}
-                disabled={isSwitching}
+                type={OPERATION_TYPES.DEPOSIT}
+                amount={depositAmount}
+                onAmountChange={handleDepositAmountChange}
+                onMaxClick={handleMaxDeposit}
+                onSubmit={handleDeposit}
+                disabled={isSwitching || isOperationActive}
                 token="USDC"
                 decimals={USDC_DECIMALS}
-                validation={withdrawValidation}
+                validation={depositValidation}
               />
-            )}
-          </OperationTabs>
-        </div>
+
+              <TransactionStatus
+                isActive={isOperationActive}
+                error={depositOperationError}
+                progress={
+                  isOperationActive && !depositOperationError && progress
+                    ? {
+                        stepNumber: progress.stepNumber,
+                        totalSteps: progress.totalSteps,
+                        percentage: progress.percentage,
+                        currentStepLabel: getCurrentStepLabel({
+                          isApproving,
+                          approveTxHash,
+                          isApprovalConfirmed,
+                          isDepositing,
+                          depositTxHash,
+                          isDepositConfirmed,
+                          selectedChainId,
+                          depositAmount,
+                        }),
+                        description: getCurrentStepDescription({
+                          isApproving,
+                          approveTxHash,
+                          isApprovalConfirmed,
+                          isDepositing,
+                          depositTxHash,
+                          isDepositConfirmed,
+                          selectedChainId,
+                          depositAmount,
+                        }),
+                      }
+                    : undefined
+                }
+                onDismissError={clearDepositError}
+              />
+
+              {isClient && (
+                <DebugInfo
+                  items={{
+                    "Your wallet": address,
+                    "USDC contract": getUsdcAddress(selectedChainId),
+                    "Vault contract": getVaultAddress(selectedChainId),
+                    "Current allowance": currentAllowance?.toString(),
+                    Chain: getChainName(selectedChainId),
+                  }}
+                />
+              )}
+            </div>
+          ) : (
+            <OperationInput
+              type={OPERATION_TYPES.WITHDRAW}
+              amount={withdrawAmount}
+              onAmountChange={setWithdrawAmount}
+              onMaxClick={handleMaxWithdraw}
+              onSubmit={handleWithdraw}
+              disabled={isSwitching}
+              token="USDC"
+              decimals={USDC_DECIMALS}
+              validation={withdrawValidation}
+            />
+          )}
+        </OperationTabs>
       </div>
     </div>
   );

@@ -1,10 +1,11 @@
 import { useInputValidation } from "./useInputValidation";
 import {
   OPERATION_TYPES,
-  ValidationResult,
   SupportedTokenSymbol,
+  VALIDATION_CONFIG,
 } from "@/types/operations";
 import { SupportedChainId, USDC_DECIMALS, ETH_DECIMALS } from "@/lib/contracts";
+import { ValidationResult } from "@/lib/validators";
 
 interface UseOperationValidationParams {
   depositAmount: string;
@@ -20,18 +21,28 @@ interface UseOperationValidationReturn {
   withdrawValidation: ValidationResult;
 }
 
-const TOKEN_CONFIGS = {
-  USDC: {
-    symbol: "USDC" as const,
-    decimals: USDC_DECIMALS,
-    minAmount: "0.000001",
-  },
-  ETH: {
-    symbol: "ETH" as const,
-    decimals: ETH_DECIMALS,
-    minAmount: "0.000000000000001",
-  },
-} as const;
+function assertNever(value: never): never {
+  throw new Error(`Unhandled token: ${JSON.stringify(value)}`);
+}
+
+export const getTokenConfig = (token: SupportedTokenSymbol) => {
+  switch (token) {
+    case "ETH":
+      return {
+        symbol: "ETH" as const,
+        decimals: ETH_DECIMALS,
+        minAmount: VALIDATION_CONFIG.MIN_AMOUNTS.ETH,
+      };
+    case "USDC":
+      return {
+        symbol: "USDC" as const,
+        decimals: USDC_DECIMALS,
+        minAmount: VALIDATION_CONFIG.MIN_AMOUNTS.USDC,
+      };
+    default:
+      return assertNever(token);
+  }
+};
 
 export function useOperationValidation({
   depositAmount,
@@ -41,12 +52,7 @@ export function useOperationValidation({
   chainId,
   token = "USDC",
 }: UseOperationValidationParams): UseOperationValidationReturn {
-  const tokenConfig = TOKEN_CONFIGS[token] || {
-    // TODO: Add support for additional tokens beyond USDC
-    symbol: "USDC" as const,
-    decimals: USDC_DECIMALS,
-    minAmount: "0.000001",
-  };
+  const tokenConfig = getTokenConfig(token);
 
   const depositValidation = useInputValidation({
     amount: depositAmount,
