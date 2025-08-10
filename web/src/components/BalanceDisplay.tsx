@@ -15,36 +15,22 @@ interface BalanceDisplayProps {
   balances: BalanceItem[];
   isLoading?: boolean;
   className?: string;
-  chainLogo?: string;
 }
 
 export function BalanceDisplay({
   balances,
   isLoading = false,
   className,
-  chainLogo,
 }: BalanceDisplayProps) {
   return (
     <div
       className={cn(
-        "p-4 grid gap-4 bg-rose-500/20 relative overflow-hidden",
+        "grid gap-4 relative",
         isLoading && "opacity-50",
         className
       )}
       aria-busy={isLoading}
     >
-      {chainLogo && (
-        <div className="absolute -bottom-15 -right-15 opacity-70 rotate-20">
-          <Image
-            src={chainLogo}
-            alt="Chain logo"
-            width={162}
-            height={162}
-            className="grayscale"
-          />
-        </div>
-      )}
-
       {balances.map((balance) => (
         <div key={balance.label} className="relative z-10">
           <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">

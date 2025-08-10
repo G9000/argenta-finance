@@ -12,12 +12,19 @@ import { formatBalance } from "@/lib/format";
 import { useChainBalances } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { BalanceDisplay } from "./BalanceDisplay";
+import { OperationInput } from "./OperationInput";
+import { OperationTabs } from "./OperationTabs";
 import { getTokenLogo, getChainLogo } from "@/lib/tokens";
+import Image from "next/image";
 
 export function BatchDeposit() {
   const { address } = useAccount();
   const chainId = useChainId();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
+
+  const [activeTab, setActiveTab] = useState<"deposit" | "withdraw">("deposit");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
 
   const [selectedChainId, setSelectedChainId] = useState<SupportedChainId>(
     isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
@@ -52,6 +59,38 @@ export function BatchDeposit() {
     );
   };
 
+  const handleMaxDeposit = () => {
+    if (usdcBalance) {
+      setDepositAmount(formatBalance(usdcBalance));
+    }
+  };
+
+  const handleMaxWithdraw = () => {
+    if (vaultBalance) {
+      setWithdrawAmount(formatBalance(vaultBalance));
+    }
+  };
+
+  const handleDeposit = () => {
+    console.log(
+      "Deposit:",
+      depositAmount,
+      "USDC on",
+      getChainName(selectedChainId)
+    );
+    // TODO: Implement deposit logic
+  };
+
+  const handleWithdraw = () => {
+    console.log(
+      "Withdraw:",
+      withdrawAmount,
+      "USDC from",
+      getChainName(selectedChainId)
+    );
+    // TODO: Implement withdraw logic
+  };
+
   if (!address) {
     return (
       <div className="text-center text-gray-400 text-sm">
@@ -61,18 +100,9 @@ export function BatchDeposit() {
   }
 
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full">
       <div className="space-y-4 border border-white/10 p-4 rounded-lg">
-        <div className="mb-3">
-          <label
-            id="chain-selector-label"
-            className="text-xs text-gray-400 uppercase tracking-wide"
-          >
-            Select Chain
-          </label>
-        </div>
-
-        <div className="border border-rose-100/10 grid">
+        <div className="border border-teal-100/10 grid">
           <div
             className="grid grid-cols-2"
             role="group"
@@ -86,7 +116,7 @@ export function BatchDeposit() {
                 className={cn(
                   "p-2 text-sm font-mono uppercase",
                   selectedChainId === chainId
-                    ? "border-rose-500 bg-rose-500/40 text-rose-400"
+                    ? "border-teal-500 bg-teal-500/40 text-teal-400"
                     : "border-white/10 text-gray-400 hover:border-white/20",
                   isSwitching && "opacity-50 cursor-not-allowed"
                 )}
@@ -103,24 +133,69 @@ export function BatchDeposit() {
             ))}
           </div>
 
-          {address && (
-            <BalanceDisplay
-              balances={[
-                {
-                  label: "Available USDC Balance",
-                  value: usdcBalance,
-                  logo: getTokenLogo("USDC"),
-                },
-                {
-                  label: "USDC in Vault",
-                  value: vaultBalance,
-                  logo: getTokenLogo("USDC"),
-                },
-              ]}
-              isLoading={isSwitching}
-              chainLogo={getChainLogo(selectedChainId)}
-            />
-          )}
+          <div className="grid gap-10 bg-teal-500/20 px-4 py-10">
+            <div className="relative my-10 font-mono">
+              <span className="text-[10px] text-teal-100/40">
+                WELCOME {address?.slice(0, 6)}...{address?.slice(-4)} YOU ARE
+                CURRENTLY ON {getChainName(selectedChainId).toUpperCase()}
+              </span>
+              <div className="text-4xl w-10/12 font-mono uppercase">
+                Manage your funds
+              </div>
+
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-70">
+                <div className="relative p-4 border border-teal-100/10 rounded-full">
+                  <Image
+                    src={getChainLogo(selectedChainId)}
+                    alt="Chain logo"
+                    width={100}
+                    height={100}
+                    className="grayscale"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {address && (
+              <BalanceDisplay
+                balances={[
+                  {
+                    label: "Available USDC Balance",
+                    value: usdcBalance,
+                    logo: getTokenLogo("USDC"),
+                  },
+                  {
+                    label: "USDC in Vault",
+                    value: vaultBalance,
+                    logo: getTokenLogo("USDC"),
+                  },
+                ]}
+                isLoading={isSwitching}
+              />
+            )}
+
+            <OperationTabs activeTab={activeTab} onTabChange={setActiveTab}>
+              {activeTab === "deposit" ? (
+                <OperationInput
+                  type="deposit"
+                  amount={depositAmount}
+                  onAmountChange={setDepositAmount}
+                  onMaxClick={handleMaxDeposit}
+                  onSubmit={handleDeposit}
+                  disabled={isSwitching}
+                />
+              ) : (
+                <OperationInput
+                  type="withdraw"
+                  amount={withdrawAmount}
+                  onAmountChange={setWithdrawAmount}
+                  onMaxClick={handleMaxWithdraw}
+                  onSubmit={handleWithdraw}
+                  disabled={isSwitching}
+                />
+              )}
+            </OperationTabs>
+          </div>
         </div>
       </div>
     </div>
