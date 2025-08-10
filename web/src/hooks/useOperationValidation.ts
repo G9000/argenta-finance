@@ -4,7 +4,7 @@ import {
   ValidationResult,
   SupportedTokenSymbol,
 } from "@/types/operations";
-import { SupportedChainId, USDC_DECIMALS } from "@/lib/contracts";
+import { SupportedChainId, USDC_DECIMALS, ETH_DECIMALS } from "@/lib/contracts";
 
 interface UseOperationValidationParams {
   depositAmount: string;
@@ -25,6 +25,11 @@ const TOKEN_CONFIGS = {
     symbol: "USDC" as const,
     decimals: USDC_DECIMALS,
     minAmount: "0.000001",
+  },
+  ETH: {
+    symbol: "ETH" as const,
+    decimals: ETH_DECIMALS,
+    minAmount: "0.000000000000001",
   },
 } as const;
 

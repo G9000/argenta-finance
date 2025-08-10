@@ -22,7 +22,6 @@ import Image from "next/image";
 export function BatchDeposit() {
   const { address } = useAccount();
   const chainId = useChainId();
-  const { switchChain, isPending: isSwitching } = useSwitchChain();
 
   const [activeTab, setActiveTab] = useState<OperationType>(
     OPERATION_TYPES.DEPOSIT
@@ -35,6 +34,8 @@ export function BatchDeposit() {
   );
 
   const [chainLogoError, setChainLogoError] = useState(false);
+
+  const { switchChain, isPending: isSwitching } = useSwitchChain();
 
   // Keep selectedChainId in sync especially when switching from the nav
   useEffect(() => {
