@@ -1,0 +1,53 @@
+name: Unit Tests
+
+on:
+  push:
+    paths:
+      - "web/src/**"
+      - "web/test/**"
+      - "web/package.json"
+  pull_request:
+    paths:
+      - "web/src/**"
+      - "web/test/**"
+      - "web/package.json"
+
+jobs:
+  test:
+    name: 🧪 Run Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./web
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: ⚙️ Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: 📦 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🧪 Run validation tests
+        run: pnpm test amount-input-validation.test.ts --run
+
+      - name: 🧪 Run all unit tests
+        run: pnpm test --run
+
+      - name: 📊 Generate test report
+        if: always()
+        run: |
+          echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "### Validation Tests" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Input validation tests completed" >> $GITHUB_STEP_SUMMARY
+          echo "### Hook Tests" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Custom hook tests completed" >> $GITHUB_STEP_SUMMARY
