@@ -8,13 +8,8 @@ import {
   SupportedTokenSymbol,
   VALIDATION_CONFIG,
   VALIDATION_MESSAGES,
+  ValidationResult,
 } from "@/types/operations";
-
-export interface ValidationResult {
-  isValid: boolean;
-  errors: string[];
-  warnings: string[];
-}
 
 export interface UseInputValidationProps {
   amount: string;

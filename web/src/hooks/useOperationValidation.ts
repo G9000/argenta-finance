@@ -41,7 +41,12 @@ export function useOperationValidation({
   chainId,
   token = "USDC",
 }: UseOperationValidationParams): UseOperationValidationReturn {
-  const tokenConfig = TOKEN_CONFIGS[token];
+  const tokenConfig = TOKEN_CONFIGS[token] || {
+    // TODO: Add support for additional tokens beyond USDC
+    symbol: "USDC" as const,
+    decimals: USDC_DECIMALS,
+    minAmount: "0.000001",
+  };
 
   const depositValidation = useInputValidation({
     amount: depositAmount,

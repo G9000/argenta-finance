@@ -49,15 +49,23 @@ export function BatchDeposit() {
   }, [selectedChainId]);
 
   const {
-    walletBalance: { data: usdcBalance },
-    vaultBalance: { data: vaultBalance },
+    walletBalance: {
+      data: usdcBalance,
+      isLoading: walletLoading,
+      error: walletError,
+    },
+    vaultBalance: {
+      data: vaultBalance,
+      isLoading: vaultLoading,
+      error: vaultError,
+    },
   } = useChainBalances({ chainId: selectedChainId });
 
   const { depositValidation, withdrawValidation } = useOperationValidation({
     depositAmount,
     withdrawAmount,
-    walletBalance: usdcBalance,
-    vaultBalance: vaultBalance,
+    walletBalance: walletError ? undefined : usdcBalance,
+    vaultBalance: vaultError ? undefined : vaultBalance,
     chainId: selectedChainId,
     token: "USDC",
   });
@@ -192,14 +200,16 @@ export function BatchDeposit() {
                   label: "Available USDC Balance",
                   value: usdcBalance,
                   logo: getTokenLogo("USDC"),
+                  error: walletError?.message,
                 },
                 {
                   label: "USDC in Vault",
                   value: vaultBalance,
                   logo: getTokenLogo("USDC"),
+                  error: vaultError?.message,
                 },
               ]}
-              isLoading={isSwitching}
+              isLoading={isSwitching || walletLoading || vaultLoading}
             />
           )}
 

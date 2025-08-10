@@ -42,7 +42,7 @@ export function OperationInput({
     amount && Number.isFinite(numericAmount) && numericAmount > 0;
   const isDeposit = type === OPERATION_TYPES.DEPOSIT;
 
-  const stepValue = `0.${"0".repeat(decimals - 1)}1`;
+  const stepValue = decimals > 0 ? `0.${"0".repeat(decimals - 1)}1` : "1";
 
   const isButtonDisabled =
     !hasAmount || !validation.isValid || disabled || isProcessing;
