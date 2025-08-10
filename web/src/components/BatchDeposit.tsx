@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import {
   getChainName,
@@ -11,6 +11,8 @@ import {
 import { formatBalance } from "@/lib/format";
 import { useChainBalances } from "@/hooks";
 import { cn } from "@/lib/utils";
+import { BalanceDisplay } from "./BalanceDisplay";
+import { getTokenLogo, getChainLogo } from "@/lib/tokens";
 
 export function BatchDeposit() {
   const { address } = useAccount();
@@ -20,6 +22,13 @@ export function BatchDeposit() {
   const [selectedChainId, setSelectedChainId] = useState<SupportedChainId>(
     isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
   );
+
+  // Keep selectedChainId in sync especially when switching from the nav
+  useEffect(() => {
+    if (isSupportedChainId(chainId)) {
+      setSelectedChainId(chainId);
+    }
+  }, [chainId]);
 
   const {
     walletBalance: { data: usdcBalance },
@@ -95,30 +104,22 @@ export function BatchDeposit() {
           </div>
 
           {address && (
-            <div
-              className={cn(
-                "space-y-3 p-4 grid gap-5 bg-rose-500/20",
-                isSwitching && "opacity-50"
-              )}
-            >
-              <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">
-                  Available USDC Balance
-                </div>
-                <div className="font-mono text-lg text-white font-semibol">
-                  {usdcBalance ? formatBalance(usdcBalance) : "0.00"} USDC
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">
-                  USDC in Vault
-                </div>
-                <div className="font-mono text-lg text-white font-semibold">
-                  {vaultBalance ? formatBalance(vaultBalance) : "0.00"} USDC
-                </div>
-              </div>
-            </div>
+            <BalanceDisplay
+              balances={[
+                {
+                  label: "Available USDC Balance",
+                  value: usdcBalance,
+                  logo: getTokenLogo("USDC"),
+                },
+                {
+                  label: "USDC in Vault",
+                  value: vaultBalance,
+                  logo: getTokenLogo("USDC"),
+                },
+              ]}
+              isLoading={isSwitching}
+              chainLogo={getChainLogo(selectedChainId)}
+            />
           )}
         </div>
       </div>

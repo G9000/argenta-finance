@@ -6,7 +6,7 @@
     "generate": "wagmi generate -c wagmi.config.ts",
     "predev": "pnpm generate",
     "prebuild": "pnpm generate",
-    "postinstall": "pnpm generate",
+    "postinstall": "node -e \"const shouldRun=process.env.NODE_ENV!=='production' && process.env.CI!=='true'; if(!shouldRun) process.exit(0);\" && pnpm generate",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
