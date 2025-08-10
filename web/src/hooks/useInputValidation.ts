@@ -64,10 +64,16 @@ export function useInputValidation({
       return { isValid: false, errors, warnings };
     }
 
-    const numericAmount = parseFloat(amount);
+    let amountInWei: bigint;
+    try {
+      amountInWei = parseUnits(amount, token.decimals);
+    } catch {
+      errors.push(VALIDATION_MESSAGES.ERRORS.INVALID_AMOUNT_FORMAT);
+      return { isValid: false, errors, warnings };
+    }
 
     // 3. Amount must be positive
-    if (numericAmount <= 0) {
+    if (amountInWei <= 0n) {
       errors.push(VALIDATION_MESSAGES.ERRORS.AMOUNT_NOT_POSITIVE);
       return { isValid: false, errors, warnings };
     }
@@ -85,22 +91,17 @@ export function useInputValidation({
     }
 
     // 5. Minimum amount validation
-    if (token.minAmount && numericAmount < parseFloat(token.minAmount)) {
-      errors.push(
-        VALIDATION_MESSAGES.ERRORS.MINIMUM_AMOUNT_NOT_MET(
-          token.minAmount,
-          token.symbol
-        )
-      );
-      return { isValid: false, errors, warnings };
-    }
-
-    let amountInWei: bigint;
-    try {
-      amountInWei = parseUnits(amount, token.decimals);
-    } catch {
-      errors.push(VALIDATION_MESSAGES.ERRORS.INVALID_AMOUNT_FORMAT);
-      return { isValid: false, errors, warnings };
+    if (token.minAmount) {
+      const minAmountInWei = parseUnits(token.minAmount, token.decimals);
+      if (amountInWei < minAmountInWei) {
+        errors.push(
+          VALIDATION_MESSAGES.ERRORS.MINIMUM_AMOUNT_NOT_MET(
+            token.minAmount,
+            token.symbol
+          )
+        );
+        return { isValid: false, errors, warnings };
+      }
     }
 
     if (type === OPERATION_TYPES.DEPOSIT) {
@@ -141,7 +142,11 @@ export function useInputValidation({
     }
 
     // 8. Large amount warning
-    if (numericAmount > VALIDATION_CONFIG.LARGE_AMOUNT_WARNING) {
+    const largeAmountThresholdInWei = parseUnits(
+      VALIDATION_CONFIG.LARGE_AMOUNT_WARNING.toString(),
+      token.decimals
+    );
+    if (amountInWei > largeAmountThresholdInWei) {
       warnings.push(VALIDATION_MESSAGES.WARNINGS.LARGE_TRANSACTION_AMOUNT);
     }
 

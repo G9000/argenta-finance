@@ -10,6 +10,7 @@ interface BalanceItem {
   currency?: string;
   logo?: string;
   error?: string;
+  decimals?: number;
 }
 
 interface BalanceDisplayProps {
@@ -32,8 +33,8 @@ export function BalanceDisplay({
       )}
       aria-busy={isLoading}
     >
-      {balances.map((balance) => (
-        <div key={balance.label} className="relative z-10">
+      {balances.map((balance, index) => (
+        <div key={`${balance.label}-${index}`} className="relative z-10">
           <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">
             {balance.label}
           </div>
@@ -53,7 +54,7 @@ export function BalanceDisplay({
                   {balance.logo && (
                     <Image
                       src={balance.logo}
-                      alt={`${balance.currency || "USDC"} logo`}
+                      alt=""
                       width={20}
                       height={20}
                       className="rounded-full opacity-50"
@@ -69,16 +70,14 @@ export function BalanceDisplay({
                 {balance.logo && (
                   <Image
                     src={balance.logo}
-                    alt={`${balance.currency || "USDC"} logo`}
+                    alt=""
                     width={20}
                     height={20}
                     className="rounded-full"
                   />
                 )}
                 <span>
-                  {balance.value !== undefined
-                    ? formatBalance(balance.value)
-                    : "0.00"}{" "}
+                  {formatBalance(balance.value, balance.decimals)}{" "}
                   {balance.currency || "USDC"}
                 </span>
               </div>

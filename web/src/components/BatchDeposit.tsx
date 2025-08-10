@@ -175,7 +175,7 @@ export function BatchDeposit() {
                 {!chainLogoError ? (
                   <Image
                     src={getChainLogo(selectedChainId)}
-                    alt={`${getChainName(selectedChainId)} chain logo`}
+                    alt=""
                     width={100}
                     height={100}
                     className="grayscale"
@@ -201,12 +201,14 @@ export function BatchDeposit() {
                   value: usdcBalance,
                   logo: getTokenLogo("USDC"),
                   error: walletError?.message,
+                  decimals: USDC_DECIMALS,
                 },
                 {
                   label: "USDC in Vault",
                   value: vaultBalance,
                   logo: getTokenLogo("USDC"),
                   error: vaultError?.message,
+                  decimals: USDC_DECIMALS,
                 },
               ]}
               isLoading={isSwitching || walletLoading || vaultLoading}
