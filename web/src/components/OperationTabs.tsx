@@ -3,10 +3,11 @@
 import * as React from "react";
 import { Tabs } from "@base-ui-components/react/tabs";
 import { cn } from "@/lib/utils";
+import { OperationType, OPERATION_TYPES } from "@/types/operations";
 
 interface OperationTabsProps {
-  activeTab: "deposit" | "withdraw";
-  onTabChange: (tab: "deposit" | "withdraw") => void;
+  activeTab: OperationType;
+  onTabChange: (tab: OperationType) => void;
   children: React.ReactNode;
 }
 
@@ -18,7 +19,7 @@ export function OperationTabs({
   return (
     <Tabs.Root
       value={activeTab}
-      onValueChange={(value) => onTabChange(value as "deposit" | "withdraw")}
+      onValueChange={(value) => onTabChange(value as OperationType)}
       className="grid gap-4"
     >
       <div className="grid gap-1">
@@ -27,13 +28,13 @@ export function OperationTabs({
         </div>
         <Tabs.List className="relative flex border border-white/10 rounded overflow-hidden">
           <Tabs.Tab
-            value="deposit"
+            value={OPERATION_TYPES.DEPOSIT}
             className={cn(
               "flex-1 px-4 py-2 text-sm font-mono transition-colors outline-none",
               "hover:text-white",
               "data-[selected]:bg-teal-500/10 data-[selected]:text-teal-400",
               "focus-visible:bg-teal-500/5",
-              activeTab === "deposit"
+              activeTab === OPERATION_TYPES.DEPOSIT
                 ? "text-teal-400 border-r border-teal-500/50"
                 : "text-gray-400 border-r border-white/10"
             )}
@@ -41,13 +42,15 @@ export function OperationTabs({
             Deposit
           </Tabs.Tab>
           <Tabs.Tab
-            value="withdraw"
+            value={OPERATION_TYPES.WITHDRAW}
             className={cn(
               "flex-1 px-4 py-2 text-sm font-mono transition-colors outline-none",
               "hover:text-white",
               "data-[selected]:bg-teal-500/10 data-[selected]:text-teal-400",
               "focus-visible:bg-teal-500/5",
-              activeTab === "withdraw" ? "text-teal-400" : "text-gray-400"
+              activeTab === OPERATION_TYPES.WITHDRAW
+                ? "text-teal-400"
+                : "text-gray-400"
             )}
           >
             Withdraw
@@ -57,10 +60,10 @@ export function OperationTabs({
       </div>
 
       <div>
-        <Tabs.Panel value="deposit" className="outline-none">
+        <Tabs.Panel value={OPERATION_TYPES.DEPOSIT} className="outline-none">
           {children}
         </Tabs.Panel>
-        <Tabs.Panel value="withdraw" className="outline-none">
+        <Tabs.Panel value={OPERATION_TYPES.WITHDRAW} className="outline-none">
           {children}
         </Tabs.Panel>
       </div>
