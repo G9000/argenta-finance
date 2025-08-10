@@ -19,14 +19,16 @@ export interface UseTokenApprovalParams {
 export interface UseTokenApprovalReturn {
   currentAllowance: bigint | undefined;
   isApproving: boolean;
-  approveTxHash: string | undefined;
+  approveTxHash: `0x${string}` | undefined;
   isApprovalConfirmed: boolean;
-  approveError: any;
-  allowanceError: any;
+  approveError: unknown;
+  allowanceError: unknown;
   approveToken: (amount: bigint) => void;
-  refetchAllowance: () => void;
+  revokeApproval: () => void;
+  refetchAllowance: () => Promise<unknown>;
   resetApproval: () => void;
-  needsApproval: (amount: bigint) => boolean;
+  needsApproval: (amount: bigint) => boolean | undefined;
+  hasInfiniteApproval: () => boolean;
 }
 
 export function useTokenApproval({
@@ -66,8 +68,11 @@ export function useTokenApproval({
   });
 
   const needsApproval = useCallback(
-    (amount: bigint): boolean => {
-      return !currentAllowance || currentAllowance < amount;
+    (amount: bigint): boolean | undefined => {
+      if (currentAllowance === undefined) {
+        return undefined;
+      }
+      return currentAllowance < amount;
     },
     [currentAllowance]
   );
@@ -92,6 +97,22 @@ export function useTokenApproval({
     [approveToken, chainId, tokenAddress, spenderAddress, useInfiniteApproval]
   );
 
+  const revokeApproval = useCallback(() => {
+    approveToken({
+      chainId,
+      address: tokenAddress,
+      abi: erc20Abi,
+      functionName: "approve",
+      args: [spenderAddress, 0n],
+    });
+  }, [approveToken, chainId, tokenAddress, spenderAddress]);
+
+  const hasInfiniteApproval = useCallback((): boolean => {
+    if (!currentAllowance) return false;
+    const threshold = (maxUint256 * 9n) / 10n;
+    return currentAllowance >= threshold;
+  }, [currentAllowance]);
+
   return {
     currentAllowance,
     isApproving,
@@ -100,8 +121,10 @@ export function useTokenApproval({
     approveError,
     allowanceError,
     approveToken: handleApproveToken,
+    revokeApproval,
     refetchAllowance,
     resetApproval,
     needsApproval,
+    hasInfiniteApproval,
   };
 }

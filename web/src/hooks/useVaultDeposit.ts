@@ -32,6 +32,7 @@ export interface VaultDepositState {
   isDepositConfirmed: boolean;
   depositError: any;
   currentAllowance: bigint | undefined;
+  hasInfiniteApproval: boolean;
   progress: DepositProgress;
 }
 
@@ -39,6 +40,7 @@ export interface VaultDepositActions {
   executeDeposit: (amount: string) => void;
   resetDeposit: () => void;
   clearError: () => void;
+  revokeApproval: () => void;
 }
 
 export interface UseVaultDepositParams {
@@ -72,13 +74,16 @@ export function useVaultDeposit({
     isApprovalConfirmed,
     approveError,
     approveToken,
+    revokeApproval,
     refetchAllowance,
     resetApproval,
     needsApproval,
+    hasInfiniteApproval,
   } = useTokenApproval({
     chainId,
     tokenAddress: usdcAddress,
     spenderAddress: vaultAddress,
+    useInfiniteApproval: false,
   });
 
   const {
@@ -114,11 +119,13 @@ export function useVaultDeposit({
       const proceedWithDeposit = async () => {
         try {
           await refetchAllowance();
-          executeDepositTransaction(usdcAddress, amountInWei);
-        } catch (error) {
-          timeoutId = setTimeout(() => {
+          if (!needsApproval(amountInWei)) {
             executeDepositTransaction(usdcAddress, amountInWei);
-          }, 1000);
+          } else {
+            executeDepositTransaction(usdcAddress, amountInWei);
+          }
+        } catch (error) {
+          executeDepositTransaction(usdcAddress, amountInWei);
         }
       };
 
@@ -136,6 +143,7 @@ export function useVaultDeposit({
     refetchAllowance,
     executeDepositTransaction,
     usdcAddress,
+    needsApproval,
   ]);
 
   // Handle successful deposit completion
@@ -271,7 +279,16 @@ export function useVaultDeposit({
       logger.debug("currentAllowance", currentAllowance);
 
       try {
-        if (needsApproval(amountInWei)) {
+        const approvalNeeded = needsApproval(amountInWei);
+
+        if (approvalNeeded === undefined) {
+          logger.debug("⏳ Allowance is still loading, deferring operation");
+          setOperationError("Checking allowance, please wait...");
+          setIsOperationActive(false);
+          return;
+        }
+
+        if (approvalNeeded) {
           logger.debug("🔐 Requesting USDC approval for", amount, "USDC");
           approveToken(amountInWei);
           return;
@@ -325,9 +342,11 @@ export function useVaultDeposit({
     isDepositConfirmed,
     depositError,
     currentAllowance,
+    hasInfiniteApproval: hasInfiniteApproval(),
     progress,
     executeDeposit,
     resetDeposit,
     clearError,
+    revokeApproval,
   };
 }

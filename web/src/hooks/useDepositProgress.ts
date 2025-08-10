@@ -83,7 +83,7 @@ export function useDepositProgress({
         case "deposit-pending":
           return 2;
         case "deposit-confirmed":
-          return 3;
+          return 2;
         default:
           return 0;
       }
@@ -93,7 +93,7 @@ export function useDepositProgress({
       step,
       percentage,
       stepNumber: getStepNumber(step),
-      totalSteps: 3,
+      totalSteps: 2,
     };
   }, [
     isApproving,

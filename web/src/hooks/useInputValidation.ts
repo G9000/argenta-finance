@@ -5,9 +5,8 @@ import {
   OperationType,
   SupportedTokenSymbol,
   VALIDATION_CONFIG,
-  ValidationResult,
 } from "@/types/operations";
-import { validateInput } from "@/lib/validation";
+import { validateInput, ValidationResult } from "@/lib/validation";
 
 export interface UseInputValidationProps {
   amount: string;
