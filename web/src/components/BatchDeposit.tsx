@@ -6,9 +6,11 @@ import {
   getChainName,
   isSupportedChainId,
   SupportedChainId,
+  SUPPORTED_CHAINS,
 } from "@/lib/contracts";
 import { formatBalance } from "@/lib/format";
 import { useChainBalances } from "@/hooks";
+import { cn } from "@/lib/utils";
 
 export function BatchDeposit() {
   const { address } = useAccount();
@@ -61,70 +63,64 @@ export function BatchDeposit() {
           </label>
         </div>
 
-        <div
-          className="grid grid-cols-2 gap-2"
-          role="group"
-          aria-labelledby="chain-selector-label"
-        >
-          <button
-            onClick={() => handleChainSwitch(SupportedChainId.ETH_SEPOLIA)}
-            disabled={isSwitching}
-            className={`p-2 rounded border text-sm font-mono ${
-              selectedChainId === SupportedChainId.ETH_SEPOLIA
-                ? "border-blue-500 bg-blue-500/10 text-blue-400"
-                : "border-white/10 text-gray-400 hover:border-white/20"
-            } ${isSwitching ? "opacity-50 cursor-not-allowed" : ""}`}
+        <div className="border border-rose-100/10 grid">
+          <div
+            className="grid grid-cols-2"
+            role="group"
+            aria-labelledby="chain-selector-label"
           >
-            {isSwitching && selectedChainId === SupportedChainId.ETH_SEPOLIA ? (
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-                Switching...
-              </div>
-            ) : (
-              getChainName(SupportedChainId.ETH_SEPOLIA)
-            )}
-          </button>
-          <button
-            onClick={() => handleChainSwitch(SupportedChainId.SEI_TESTNET)}
-            disabled={isSwitching}
-            className={`p-2 rounded border text-sm font-mono ${
-              selectedChainId === SupportedChainId.SEI_TESTNET
-                ? "border-blue-500 bg-blue-500/10 text-blue-400"
-                : "border-white/10 text-gray-400 hover:border-white/20"
-            } ${isSwitching ? "opacity-50 cursor-not-allowed" : ""}`}
-          >
-            {isSwitching && selectedChainId === SupportedChainId.SEI_TESTNET ? (
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-                Switching...
-              </div>
-            ) : (
-              getChainName(SupportedChainId.SEI_TESTNET)
-            )}
-          </button>
-        </div>
-
-        {address && (
-          <div className="space-y-3">
-            <div className="border border-white/10 p-4 rounded-lg">
-              <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">
-                Available USDC Balance
-              </div>
-              <div className="font-mono text-lg text-white">
-                {usdcBalance ? formatBalance(usdcBalance) : "0.00"} USDC
-              </div>
-            </div>
-
-            <div className="border border-white/10 p-4 rounded-lg">
-              <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">
-                USDC in Vault
-              </div>
-              <div className="font-mono text-lg text-white">
-                {vaultBalance ? formatBalance(vaultBalance) : "0.00"} USDC
-              </div>
-            </div>
+            {SUPPORTED_CHAINS.map((chainId) => (
+              <button
+                key={chainId}
+                onClick={() => handleChainSwitch(chainId)}
+                disabled={isSwitching}
+                className={cn(
+                  "p-2 text-sm font-mono uppercase",
+                  selectedChainId === chainId
+                    ? "border-rose-500 bg-rose-500/40 text-rose-400"
+                    : "border-white/10 text-gray-400 hover:border-white/20",
+                  isSwitching && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {isSwitching && selectedChainId === chainId ? (
+                  <div className="flex items-center gap-2">
+                    <div className="size-3 border border-current border-t-transparent rounded-full animate-spin" />
+                    Switching...
+                  </div>
+                ) : (
+                  getChainName(chainId)
+                )}
+              </button>
+            ))}
           </div>
-        )}
+
+          {address && (
+            <div
+              className={cn(
+                "space-y-3 p-4 grid gap-5 bg-rose-500/20",
+                isSwitching && "opacity-50"
+              )}
+            >
+              <div>
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">
+                  Available USDC Balance
+                </div>
+                <div className="font-mono text-lg text-white font-semibol">
+                  {usdcBalance ? formatBalance(usdcBalance) : "0.00"} USDC
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">
+                  USDC in Vault
+                </div>
+                <div className="font-mono text-lg text-white font-semibold">
+                  {vaultBalance ? formatBalance(vaultBalance) : "0.00"} USDC
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
