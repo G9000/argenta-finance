@@ -37,17 +37,5 @@ jobs:
       - name: 📦 Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: 🧪 Run validation tests
-        run: pnpm test amount-input-validation.test.ts --run
-
-      - name: 🧪 Run all unit tests
+      - name: 🧪 Run unit tests
         run: pnpm test --run
-
-      - name: 📊 Generate test report
-        if: always()
-        run: |
-          echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "### Validation Tests" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Input validation tests completed" >> $GITHUB_STEP_SUMMARY
-          echo "### Hook Tests" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Custom hook tests completed" >> $GITHUB_STEP_SUMMARY
