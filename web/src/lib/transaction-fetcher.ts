@@ -1,4 +1,6 @@
-import { PublicClient, formatUnits } from "viem";
+import { formatUnits } from "viem";
+import { getBlockNumber, getBlock, getPublicClient } from "@wagmi/core";
+import { wagmiConfig } from "@/wagmi";
 import {
   getUsdcAddress,
   getVaultAddress,
@@ -18,18 +20,19 @@ export interface VaultTransaction {
   to: string;
 }
 
-async function safeGetLogs(
-  publicClient: PublicClient,
-  params: Parameters<typeof publicClient.getLogs>[0]
-) {
+async function safeGetLogs(chainId: SupportedChainId, params: any) {
   try {
+    const publicClient = getPublicClient(wagmiConfig as any, { chainId });
     return await publicClient.getLogs(params as any);
   } catch (e: any) {
     const msg = e?.message || "";
     if (/block range too large/i.test(msg)) {
-      const originalFrom = (params as any)?.fromBlock as bigint;
-      const currentBlock = await publicClient.getBlockNumber();
+      const originalFrom = params?.fromBlock as bigint;
+      const currentBlock = await getBlockNumber(wagmiConfig as any, {
+        chainId,
+      });
       const mid = (currentBlock + originalFrom) / 2n;
+      const publicClient = getPublicClient(wagmiConfig as any, { chainId });
       return await publicClient.getLogs({ ...params, fromBlock: mid } as any);
     }
     throw e;
@@ -37,7 +40,7 @@ async function safeGetLogs(
 }
 
 async function getLogsForRange(
-  publicClient: PublicClient,
+  chainId: SupportedChainId,
   options: {
     usdcAddress: `0x${string}`;
     vaultAddress: `0x${string}`;
@@ -50,7 +53,7 @@ async function getLogsForRange(
     options;
 
   const [vaultDeposits, vaultWithdrawals, vaultApprovals] = await Promise.all([
-    safeGetLogs(publicClient, {
+    safeGetLogs(chainId, {
       address: usdcAddress,
       event: {
         type: "event",
@@ -65,7 +68,7 @@ async function getLogsForRange(
       toBlock,
       args: { from: userAddress, to: vaultAddress },
     }),
-    safeGetLogs(publicClient, {
+    safeGetLogs(chainId, {
       address: usdcAddress,
       event: {
         type: "event",
@@ -80,7 +83,7 @@ async function getLogsForRange(
       toBlock,
       args: { from: vaultAddress, to: userAddress },
     }),
-    safeGetLogs(publicClient, {
+    safeGetLogs(chainId, {
       address: usdcAddress,
       event: {
         type: "event",
@@ -100,21 +103,17 @@ async function getLogsForRange(
   return [...vaultDeposits, ...vaultWithdrawals, ...vaultApprovals];
 }
 
-// Due to time constraint and breavity, minimal version with adaptive backfill for Sei
+// Due to time constraint and brevity, minimal version with adaptive backfill for Sei
 export async function fetchVaultTransactions(
-  publicClient: PublicClient,
+  chainId: SupportedChainId,
   userAddress: `0x${string}`,
   limit: number = 10
 ): Promise<VaultTransaction[]> {
-  if (!publicClient.chain)
-    throw new Error("Public client chain is not available");
-
-  const chainId = publicClient.chain.id as SupportedChainId;
   const usdcAddress = getUsdcAddress(chainId);
   const vaultAddress = getVaultAddress(chainId);
   const deploymentBlock = getVaultDeploymentBlock(chainId);
 
-  const currentBlock = await publicClient.getBlockNumber();
+  const currentBlock = await getBlockNumber(wagmiConfig as any, { chainId });
   const MAX_SPAN = 1999;
 
   // For Sei, we need adaptive backfill due to sparse transactions
@@ -138,7 +137,7 @@ export async function fetchVaultTransactions(
       // Don't search before deployment
       if (Number(fromBlock) < deploymentBlock) break;
 
-      const chunkLogs = await getLogsForRange(publicClient, {
+      const chunkLogs = await getLogsForRange(chainId, {
         usdcAddress,
         vaultAddress,
         userAddress,
@@ -160,7 +159,7 @@ export async function fetchVaultTransactions(
       fromBlock = currentBlock - BigInt(1999);
     }
 
-    allCollectedLogs = await getLogsForRange(publicClient, {
+    allCollectedLogs = await getLogsForRange(chainId, {
       usdcAddress,
       vaultAddress,
       userAddress,
@@ -187,13 +186,15 @@ export async function fetchVaultTransactions(
   if (uniqueBlockNumbers.length) {
     const blocks = await Promise.all(
       uniqueBlockNumbers.map((bn) =>
-        publicClient.getBlock({ blockNumber: bn }).catch((e) => {
-          console.error("Failed to fetch block", bn.toString(), e);
-          return undefined;
-        })
+        getBlock(wagmiConfig as any, { blockNumber: bn, chainId }).catch(
+          (e: any) => {
+            console.error("Failed to fetch block", bn.toString(), e);
+            return undefined;
+          }
+        )
       )
     );
-    blocks.forEach((blk, idx) => {
+    blocks.forEach((blk: any, idx: number) => {
       if (blk) blockMap.set(uniqueBlockNumbers[idx], blk);
     });
   }
@@ -229,7 +230,7 @@ export async function fetchVaultTransactions(
         type: transactionType,
         amount: formatUnits(transferArgs.value as bigint, 6),
         tokenSymbol: "USDC",
-        chainId: publicClient.chain!.id,
+        chainId: chainId,
         timestamp: Number(block.timestamp) * 1000,
         blockNumber: Number(log.blockNumber),
         from: transferArgs.from as string,
@@ -247,7 +248,7 @@ export async function fetchVaultTransactions(
         type: "approval",
         amount: formatUnits(approvalArgs.value as bigint, 6),
         tokenSymbol: "USDC",
-        chainId: publicClient.chain!.id,
+        chainId: chainId,
         timestamp: Number(block.timestamp) * 1000,
         blockNumber: Number(log.blockNumber),
         from: approvalArgs.owner as string,

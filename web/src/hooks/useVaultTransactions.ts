@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { useTransactionStore } from "@/stores/transactionStore";
 import { fetchVaultTransactions } from "@/lib/transaction-fetcher";
+import { SupportedChainId } from "@/constant/contracts";
 
 interface UseVaultTransactionsOptions {
   limit?: number;
@@ -10,8 +11,7 @@ interface UseVaultTransactionsOptions {
 // Minimal implementation
 export function useVaultTransactions(options?: UseVaultTransactionsOptions) {
   const { address } = useAccount();
-  const publicClient = usePublicClient();
-  const chainId = publicClient?.chain?.id;
+  const chainId = useChainId();
   const prevChainIdRef = useRef<number | undefined>(undefined);
   const { transactions, addTransaction, isLoading, setLoading, clearHistory } =
     useTransactionStore();
@@ -20,7 +20,7 @@ export function useVaultTransactions(options?: UseVaultTransactionsOptions) {
 
   const fetchTransactions = useCallback(
     async (opts?: { reset?: boolean; limit?: number }) => {
-      if (!address || !publicClient) return;
+      if (!address || !chainId) return;
 
       setLoading(true);
       setError(null);
@@ -28,7 +28,7 @@ export function useVaultTransactions(options?: UseVaultTransactionsOptions) {
       try {
         const effectiveLimit = opts?.limit ?? limit;
         const vaultTransactions = await fetchVaultTransactions(
-          publicClient,
+          chainId as SupportedChainId,
           address,
           effectiveLimit
         );
@@ -57,7 +57,7 @@ export function useVaultTransactions(options?: UseVaultTransactionsOptions) {
         setLoading(false);
       }
     },
-    [address, publicClient, limit, setLoading, clearHistory, addTransaction]
+    [address, chainId, limit, setLoading, clearHistory, addTransaction]
   );
 
   useEffect(() => {
