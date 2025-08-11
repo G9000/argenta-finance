@@ -5,8 +5,10 @@ Focus: multi-chain UX, a resilient batch **Approve → Deposit** flow, and clear
 > ✨ Key design choice: a **framework-agnostic task runner** (pure TypeScript service) orchestrates multi-chain deposits. React is just a thin UI wrapper around it.
 
 ---
-<img width="3464" height="2012" alt="スクリーンショット 2025-08-12 003907" src="https://github.com/user-attachments/assets/dc07d380-97a0-45fe-9909-7285720ad922" />
-DEM (Prior,  I accidentally approveda  massive allowance on Sepolia net, thus the approval skip)
+
+
+https://github.com/user-attachments/assets/d8dce002-c8fe-4012-9dab-aabbf632d125
+DEMO (Prior,  I accidentally approved a  massive allowance on Sepolia net, thus the approval skip)
 
 ## Approach & Architecture
 
@@ -117,8 +119,7 @@ By **centralizing all batch execution logic** into `createBatchDepositService`, 
 
 ## Notes & Challenges
 
-- One of the biggest time sinks — and not particularly productive — was figuring out how to get USDC to the Sei Testnet.  
-  The official Circle CCTP reference at [https://replit.com/@G9000/cctp-v2-web-app](https://replit.com/@G9000/cctp-v2-web-app) did not work for me despite multiple attempts. While eventually resolved via a script (`bluewater-usdc-cctp`), this consumed a disproportionate amount of the available build time.
+- One of the biggest time sinks — and not particularly productive — was figuring out how to get USDC to the Sei Testnet. The official Circle CCTP reference at [[https://replit.com/@G9000/cctp-v2-web-app](https://replit.com/@buildoncircle/cctp-v2-web-app)](https://replit.com/@buildoncircle/cctp-v2-web-app) did not work for me despite multiple attempts. While eventually resolved via a script (`bluewater-usdc-cctp`), this consumed a disproportionate amount of the available build time.
 
 ## Sequence Diagram
 
