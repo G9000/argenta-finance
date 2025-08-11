@@ -48,7 +48,7 @@ export function DepositTypeModeToggle({
           !isMultiChainMode ? "text-teal-400" : "text-gray-400 hover:text-white"
         )}
       >
-        Single
+        SINGLE
       </button>
 
       <button
@@ -65,7 +65,7 @@ export function DepositTypeModeToggle({
           isMultiChainMode ? "text-teal-400" : "text-gray-400 hover:text-white"
         )}
       >
-        Multi
+        MULTI
       </button>
     </div>
   );

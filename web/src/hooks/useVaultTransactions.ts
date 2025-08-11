@@ -7,6 +7,7 @@ interface UseVaultTransactionsOptions {
   limit?: number;
 }
 
+// Minimal implementation
 export function useVaultTransactions(options?: UseVaultTransactionsOptions) {
   const { address } = useAccount();
   const publicClient = usePublicClient();

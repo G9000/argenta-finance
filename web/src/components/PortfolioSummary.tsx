@@ -11,7 +11,6 @@ export function PortfolioSummary() {
   return (
     <CardContainer>
       <div className="grid gap-4">
-        {/* Header - similar to NetworkBalanceCard */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {usdcLogo && (

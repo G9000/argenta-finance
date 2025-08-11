@@ -9,8 +9,6 @@ import {
   isSupportedChainId,
   SupportedChainId,
   USDC_DECIMALS,
-  getUsdcAddress,
-  getVaultAddress,
 } from "@/constant/contracts";
 import { formatBalance } from "@/lib/format";
 import { parseAmountToBigInt } from "@/lib/vault-operations";
@@ -20,14 +18,12 @@ import {
   useBatchDepositValidation,
 } from "@/hooks";
 import { useBatchDeposit } from "@/hooks/useBatchDeposit";
-import { BalanceDisplay } from "./BalanceDisplay";
 import { OperationInput } from "./OperationInput";
 import { OperationTabs } from "./OperationTabs";
 import { DepositInput } from "./DepositInput";
 import { BatchOperationProgress } from "./BatchOperationProgress";
 import { PortfolioTabs } from "./PortfolioTabs";
 import { TransactionHistory } from "./TransactionHistory";
-import { getTokenLogo } from "@/lib/tokens";
 import { OperationType } from "@/types/ui-state";
 import { OPERATION_TYPES } from "@/constant/operation-constants";
 import { createComponentLogger } from "@/lib/logger";
@@ -318,9 +314,16 @@ export function VaultOperations() {
             }}
             onRetryChain={handleRetryChain}
             onDismiss={() => {
+              // If batch is complete, a dismissal is a true close: clear state.
+              const batchIsComplete =
+                !depositProgress.isRetrying &&
+                !isExecuting &&
+                depositResults.length > 0;
               setShowDepositProgress(false);
-              setDepositCompletedSuccessfully(false);
-              clearDepositAmounts();
+              if (batchIsComplete) {
+                setDepositCompletedSuccessfully(false);
+                clearDepositAmounts();
+              }
             }}
             onCancelBatch={() => {
               cancelDeposit();
@@ -329,6 +332,36 @@ export function VaultOperations() {
             }}
           />
         )}
+
+        {!showDepositProgress &&
+          (isExecuting ||
+            depositProgress.isRetrying ||
+            (depositResults.length > 0 &&
+              !depositProgress.isRetrying &&
+              depositResults.some((r) => r.status !== "success") ===
+                false)) && (
+            <button
+              onClick={() => setShowDepositProgress(true)}
+              className="fixed bottom-4 right-4 z-40 px-4 py-3 shadow-lg border border-teal-500/40 bg-gradient-to-br from-gray-900/90 to-gray-800/80 backdrop-blur-sm text-teal-300 hover:text-white hover:from-gray-800 hover:to-gray-700 transition-colors font-mono text-xs uppercase tracking-wide flex items-center gap-3"
+            >
+              <div className="flex flex-col text-left">
+                <span className="text-[10px] text-gray-400 uppercase tracking-wider">
+                  Batch Operation
+                </span>
+                {isExecuting || depositProgress.isRetrying ? (
+                  <span>
+                    {Math.round(depositProgress.percentage)}% in progress
+                  </span>
+                ) : (
+                  <span>
+                    {depositResults.every((r) => r.status === "success")
+                      ? "Completed"
+                      : "Completed (with issues)"}
+                  </span>
+                )}
+              </div>
+            </button>
+          )}
 
         <div className="border-t border-white/10 pt-6">
           <TransactionHistory />

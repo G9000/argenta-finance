@@ -29,7 +29,7 @@ export function ValidationMessages({
             <div
               key={`error-${index}`}
               className={cn(
-                "text-xs px-3 py-2 rounded-lg border flex items-center gap-2",
+                "text-xs px-3 py-2 border flex items-center gap-2",
                 "text-red-400 border-red-400/40 bg-red-400/5"
               )}
             >
@@ -47,7 +47,7 @@ export function ValidationMessages({
             <div
               key={`warning-${index}`}
               className={cn(
-                "text-xs px-3 py-2 rounded-lg border flex items-center gap-2",
+                "text-xs px-3 py-2 border flex items-center gap-2",
                 "text-yellow-400 border-yellow-400/40 bg-yellow-400/5"
               )}
             >

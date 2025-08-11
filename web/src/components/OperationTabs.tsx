@@ -27,7 +27,7 @@ export function OperationTabs({
         <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
           Operation Type
         </div>
-        <Tabs.List className="relative flex border border-white/10 rounded overflow-hidden">
+        <Tabs.List className="relative flex border border-white/10 overflow-hidden">
           <Tabs.Tab
             value={OPERATION_TYPES.DEPOSIT}
             className={cn(

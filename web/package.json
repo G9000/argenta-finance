@@ -4,8 +4,6 @@
   "private": true,
   "scripts": {
     "generate": "wagmi generate -c wagmi.config.ts",
-    "predev": "pnpm generate",
-    "prebuild": "pnpm generate",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",

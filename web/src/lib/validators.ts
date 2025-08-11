@@ -1,4 +1,4 @@
-import { parseUnits, isAddress, maxUint256, type Address } from "viem";
+import { parseUnits, isAddress, maxUint256 } from "viem";
 
 export interface ValidationResult {
   isValid: boolean;

@@ -49,7 +49,7 @@ export function TransactionHistory() {
         <button
           onClick={() => fetchTransactions()}
           disabled={isLoading}
-          className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-teal-500/40 hover:border-teal-300/70 disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-br from-teal-500/10 to-purple-700/10 hover:from-teal-400/20 hover:to-purple-600/20 transition-colors group"
+          className="inline-flex items-center justify-center size-7 border border-teal-500/40 hover:border-teal-300/70 disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-br from-teal-500/10 to-purple-700/10 hover:from-teal-400/20 hover:to-purple-600/20 transition-colors group"
           aria-label="Refresh"
           title="Refresh"
         >

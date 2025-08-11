@@ -125,7 +125,6 @@ export function createBatchDepositService(
   wagmi: WagmiDependencies,
   config: BatchDepositConfig = DEFAULT_CONFIG
 ): BatchDepositService {
-  // Private state using closure
   let isRunning = false;
   let isCancelled = false;
   let results: BatchDepositResult[] = [];
@@ -210,7 +209,6 @@ export function createBatchDepositService(
                 console.warn(
                   `[BatchDeposit] Chain mismatch (expected ${chainId}, got ${activeChainId}) before allowance read. Retrying after short delay.`
                 );
-                // Short delay to allow provider to finish switching
                 await new Promise((r) => setTimeout(r, 500));
               }
             } catch (chainDetectError) {
@@ -230,13 +228,11 @@ export function createBatchDepositService(
             })) as bigint;
             return currentAllowance < amount;
           } catch (contractError) {
-            // Handle specific case where contract returns no data
             const errorMsg =
               contractError instanceof Error
                 ? contractError.message
                 : String(contractError);
             if (errorMsg.includes('returned no data ("0x")')) {
-              // Return true to indicate approval is needed since we can't determine current allowance
               return true;
             }
             throw contractError;
@@ -423,7 +419,7 @@ export function createBatchDepositService(
 
     // If retrying and previous approval already confirmed (passed in via external state), caller cannot easily pass that here.
     // Heuristic: if allowance check says not needed OR isRetry and allowance sufficient, we skip.
-    // (needsApproval already false if allowance sufficient)
+    // needsApproval already false if allowance sufficient
 
     if (needsApproval) {
       if (isCancelled) throw new Error("Operation cancelled");

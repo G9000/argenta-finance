@@ -20,9 +20,10 @@ export function DepositSummary({
     <div className="border border-teal-500/30 bg-teal-500/5 p-4">
       <div className="space-y-3">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-400 uppercase tracking-wide">Active Chains</span>
+          <span className="text-gray-400 uppercase tracking-wide">
+            Active Chains
+          </span>
           <div className="flex items-center gap-2">
-            {/* Stacked chain token images */}
             <div className="flex items-center -space-x-1">
               {activeChainIds.map((chainId, index) => {
                 const logo = getChainLogo(chainId);
@@ -55,7 +56,9 @@ export function DepositSummary({
         </div>
 
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-400 uppercase tracking-wide">Total Amount</span>
+          <span className="text-gray-400 uppercase tracking-wide">
+            Total Amount
+          </span>
           <div className="flex items-center gap-1.5">
             <Image
               src={getTokenLogo("USDC")}
@@ -71,7 +74,9 @@ export function DepositSummary({
         </div>
 
         <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-500 uppercase tracking-wide">Estimated Transactions</span>
+          <span className="text-gray-500 uppercase tracking-wide">
+            Estimated Transactions
+          </span>
           <span className="text-gray-400 font-mono uppercase">
             {activeChainCount * 2} (APPROVAL + DEPOSIT PER CHAIN)
           </span>
