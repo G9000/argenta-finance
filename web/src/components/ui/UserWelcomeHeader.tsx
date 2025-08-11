@@ -5,7 +5,9 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { getChainName, SupportedChainId } from "@/constant/contracts";
 import { getChainLogo } from "@/lib/tokens";
-import { useEnsName } from "@/hooks/useEnsName";
+import { useEnsName } from "wagmi";
+import { isAddress } from "viem";
+import { mainnet } from "wagmi/chains";
 
 interface UserWelcomeHeaderProps {
   address: string;
@@ -23,7 +25,11 @@ export function UserWelcomeHeader({
   className,
 }: UserWelcomeHeaderProps) {
   const [logoError, setLogoError] = useState(false);
-  const { data: ensName } = useEnsName({ address });
+  const { data: ensName } = useEnsName({
+    address:
+      address && isAddress(address) ? (address as `0x${string}`) : undefined,
+    chainId: mainnet.id,
+  });
 
   useEffect(() => {
     setLogoError(false);

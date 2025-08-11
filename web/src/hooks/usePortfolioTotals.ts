@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useAccount, useReadContracts, useBlockNumber } from "wagmi";
+import { useAccount, useReadContracts } from "wagmi";
 import { erc20Abi } from "viem";
 import { simpleVaultAbi } from "@/generated/wagmi";
 import {
@@ -10,20 +10,6 @@ import {
 
 export function usePortfolioTotals() {
   const { address: walletAddress } = useAccount();
-
-  // Watch block numbers to trigger refetches
-  const { data: sepoliaBlockNumber } = useBlockNumber({
-    chainId: SupportedChainId.ETH_SEPOLIA,
-    watch: true,
-    query: { refetchInterval: 4000 }, // Refetch every 4 seconds
-  });
-
-  const { data: seiBlockNumber } = useBlockNumber({
-    chainId: SupportedChainId.SEI_TESTNET,
-    watch: true,
-    query: { refetchInterval: 4000 }, // Refetch every 4 seconds
-  });
-
   const sepoliaUsdcAddress = getUsdcAddress(SupportedChainId.ETH_SEPOLIA);
   const sepoliaVaultAddress = getVaultAddress(SupportedChainId.ETH_SEPOLIA);
   const seiUsdcAddress = getUsdcAddress(SupportedChainId.SEI_TESTNET);

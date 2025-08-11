@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { useEnsName, useEnsAvatar } from "@/hooks/useEnsName";
+import { useEnsName, useEnsAvatar } from "wagmi";
 import { cn } from "@/lib/utils";
+import { isAddress } from "viem";
+import { mainnet } from "wagmi/chains";
 
 interface EnsAvatarProps {
   address: string;
@@ -19,10 +21,17 @@ export function EnsAvatar({
   showFallback = true,
 }: EnsAvatarProps) {
   const [imageError, setImageError] = useState(false);
-  const { data: ensName } = useEnsName({ address });
+  const { data: ensName } = useEnsName({
+    address:
+      address && isAddress(address) ? (address as `0x${string}`) : undefined,
+    chainId: mainnet.id,
+  });
   const { data: ensAvatar, isLoading } = useEnsAvatar({
-    name: ensName,
-    enabled: !!ensName,
+    name: ensName || undefined,
+    chainId: mainnet.id,
+    query: {
+      enabled: !!ensName,
+    },
   });
 
   if (ensAvatar && !imageError) {
@@ -40,7 +49,7 @@ export function EnsAvatar({
           onLoad={() => {
             setImageError(false);
           }}
-          unoptimized // Fallback for external images that might cause issues
+          unoptimized
         />
       </div>
     );

@@ -1,8 +1,10 @@
 "use client";
 
-import { useEnsName } from "@/hooks/useEnsName";
+import { useEnsName } from "wagmi";
 import { EnsAvatar } from "./EnsAvatar";
 import { cn } from "@/lib/utils";
+import { isAddress } from "viem";
+import { mainnet } from "wagmi/chains";
 
 interface AddressDisplayProps {
   address: string;
@@ -22,8 +24,9 @@ export function AddressDisplay({
   className = "",
 }: AddressDisplayProps) {
   const { data: ensName, isLoading: nameLoading } = useEnsName({
-    address,
-    enabled: true,
+    address:
+      address && isAddress(address) ? (address as `0x${string}`) : undefined,
+    chainId: mainnet.id,
   });
 
   const formatAddress = (addr: string) => {

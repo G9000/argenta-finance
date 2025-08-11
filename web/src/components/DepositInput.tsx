@@ -55,8 +55,16 @@ export function DepositInput({
   });
 
   const chainBalances = {
-    [SupportedChainId.ETH_SEPOLIA]: ethSepoliaBalance.walletBalance,
-    [SupportedChainId.SEI_TESTNET]: seiTestnetBalance.walletBalance,
+    [SupportedChainId.ETH_SEPOLIA]: {
+      data: ethSepoliaBalance.data?.walletBalance,
+      isLoading: ethSepoliaBalance.isLoading,
+      error: ethSepoliaBalance.error,
+    },
+    [SupportedChainId.SEI_TESTNET]: {
+      data: seiTestnetBalance.data?.walletBalance,
+      isLoading: seiTestnetBalance.isLoading,
+      error: seiTestnetBalance.error,
+    },
   };
 
   useEffect(() => {
