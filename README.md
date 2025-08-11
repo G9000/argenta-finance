@@ -107,6 +107,93 @@ By **centralizing all batch execution logic** into `createBatchDepositService`, 
 **In short:**  
 `createBatchDepositService` gives us a **modular, resilient, and testable foundation** for multi-chain deposit flows — one that handles chain switching, approvals, deposits, retries, timeouts, progress tracking, and user cancellations in a single cohesive service.
 
-```
+---
 
+## Sequence Diagram
+
+```mermaid
+graph TD
+    A[Start Batch Deposit] --> B[Initialize Service]
+    B --> C[Validate Input Chain Amounts]
+    C --> D[Calculate Total Steps<br/>3 steps per chain]
+    D --> E[Emit batchStarted Event]
+    E --> F[For Each Chain]
+
+    F --> G[Emit chainStarted Event]
+    G --> H[Step 1: Switch to Chain]
+    H --> I[Emit stepStarted: switching]
+    I --> J[Execute Chain Switch<br/>with Retry Logic]
+    J --> K{Switch Successful?}
+    K -->|No| L[Retry with<br/>Exponential Backoff]
+    L --> J
+    K -->|Yes| M[Emit stepCompleted: switching]
+    M --> N[Check if Cancelled]
+
+    N -->|Cancelled| Z[Return with Cancelled Status]
+    N -->|Continue| O[Step 2: Check Approval]
+    O --> P[Get USDC & Vault Addresses]
+    P --> Q[Check Current Allowance]
+    Q --> R{Needs Approval?}
+
+    R -->|No| S[Skip Approval<br/>Increment Step]
+    R -->|Yes| T[Emit stepStarted: approving]
+    T --> U[Execute Approval Transaction]
+    U --> V{User Approved?}
+    V -->|No| W[Set Status: cancelled<br/>userCancelled: true]
+    V -->|Yes| X[Wait for Transaction<br/>Confirmation]
+    X --> Y[Emit transactionConfirmed]
+    Y --> AA[Emit stepCompleted: approving]
+
+    S --> BB[Step 3: Execute Deposit]
+    AA --> BB
+    BB --> CC[Emit stepStarted: depositing]
+    CC --> DD[Execute Deposit Transaction]
+    DD --> EE{User Approved?}
+    EE -->|No| FF[Set Status: partial<br/>userCancelled: true]
+    EE -->|Yes| GG[Wait for Transaction<br/>Confirmation]
+    GG --> HH[Emit transactionConfirmed]
+    HH --> II[Emit stepCompleted: depositing]
+    II --> JJ[Emit chainCompleted]
+
+    JJ --> KK{More Chains?}
+    KK -->|Yes| F
+    KK -->|No| LL[Emit batchCompleted]
+    LL --> MM[Return Results]
+
+    %% Error Handling Branch
+    J --> NN{Error Occurred?}
+    U --> NN
+    DD --> NN
+    NN -->|Yes| OO{User Rejection?}
+    OO -->|Yes| PP[Don't Retry<br/>Throw Error]
+    OO -->|No| QQ[Apply Retry Logic<br/>with Timeout]
+    QQ --> RR{Max Retries?}
+    RR -->|No| SS[Exponential Backoff<br/>Wait & Retry]
+    RR -->|Yes| TT[Mark Chain as Failed]
+    SS --> J
+    TT --> UU[Emit chainFailed]
+    UU --> KK
+
+    %% Retry Functionality
+    VV[Retry Single Chain] --> WW[Check if Already Running]
+    WW --> XX{Running?}
+    XX -->|Yes| YY[Throw Error]
+    XX -->|No| ZZ[Set activeRetryChain]
+    ZZ --> AAA[Execute Single Chain<br/>with isRetry=true]
+    AAA --> BBB[Clear activeRetryChain]
+
+    %% Events and Progress
+    CCC[Progress Events] --> DDD[progressUpdated<br/>stepStarted<br/>stepCompleted<br/>transactionSubmitted<br/>transactionConfirmed]
+
+    %% Cancellation
+    EEE[Cancel Operation] --> FFF[Set isCancelled = true]
+    FFF --> GGG[Operations Check<br/>isCancelled Flag]
+
+    style A fill:#e1f5fe
+    style MM fill:#c8e6c9
+    style Z fill:#ffcdd2
+    style W fill:#ffcdd2
+    style FF fill:#fff3e0
+    style TT fill:#ffcdd2
+    style YY fill:#ffcdd2
 ```
