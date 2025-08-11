@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useWaitForTransactionReceipt } from "wagmi";
 import { useWriteSimpleVaultDeposit } from "@/generated/wagmi";
-import { SupportedChainId } from "@/lib/contracts";
+import { SupportedChainId } from "@/constant/contracts";
 import { CommonValidations, validateOrThrow } from "@/lib/validators";
 
 export interface UseVaultDepositTransactionParams {

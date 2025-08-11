@@ -10,12 +10,12 @@ import {
   getChainName,
   USDC_DECIMALS,
   getUsdcAddress,
-} from "@/lib/contracts";
+} from "@/constant/contracts";
 import { cn } from "@/lib/utils";
 import { formatBalance } from "@/lib/format";
 import { getTokenLogo } from "@/lib/tokens";
 import { useChainBalances } from "@/hooks";
-import type { BatchDepositState, ChainDepositAmount } from "@/types/operations";
+import type { BatchDepositState, ChainDepositAmount } from "@/types/ui-state";
 
 interface BatchDepositInputProps {
   batchState: BatchDepositState;

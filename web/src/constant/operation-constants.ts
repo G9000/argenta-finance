@@ -1,59 +1,15 @@
-import { SupportedChainId } from "@/lib/contracts";
-
+/**
+ * Operation type constants
+ */
 export const OPERATION_TYPES = {
   DEPOSIT: "deposit",
   WITHDRAW: "withdraw",
   BATCH_DEPOSIT: "batch_deposit",
 } as const;
 
-export type OperationType =
-  (typeof OPERATION_TYPES)[keyof typeof OPERATION_TYPES];
-
-// Batch Deposit Types
-export interface ChainDepositAmount {
-  chainId: SupportedChainId;
-  amount: string;
-}
-
-export interface BatchDepositState {
-  inputs: Record<SupportedChainId, string>;
-  isValid: boolean;
-  totalAmount: string;
-  errors: Record<SupportedChainId, string[]>;
-  warnings: Record<SupportedChainId, string[]>;
-}
-
-export interface ChainOperationStatus {
-  chainId: SupportedChainId;
-  status:
-    | "pending"
-    | "approving"
-    | "depositing"
-    | "completed"
-    | "failed"
-    | "retrying"
-    | "partial";
-  approveTxHash?: string;
-  depositTxHash?: string;
-  error?: string;
-  canRetry?: boolean;
-}
-
-export interface BatchDepositProgress {
-  totalSteps: number;
-  currentStep: number;
-  percentage: number;
-  currentChain?: SupportedChainId;
-  currentOperation?: "approval" | "deposit";
-  chainStatuses: ChainOperationStatus[];
-  isComplete: boolean;
-  hasFailures: boolean;
-  batchCompletedSuccessfully: boolean;
-  // Runtime-only flags (not persisted)
-  isRetrying?: boolean;
-  retryingChainId?: SupportedChainId | null;
-}
-
+/**
+ * Supported token configurations
+ */
 export const SUPPORTED_TOKENS = {
   USDC: {
     symbol: "USDC",
@@ -65,9 +21,9 @@ export const SUPPORTED_TOKENS = {
   },
 } as const;
 
-export type SupportedTokenSymbol =
-  (typeof SUPPORTED_TOKENS)[keyof typeof SUPPORTED_TOKENS]["symbol"];
-
+/**
+ * Validation configuration constants
+ */
 export const VALIDATION_CONFIG = {
   MIN_AMOUNTS: {
     USDC: "0.000001",
@@ -81,6 +37,9 @@ export const VALIDATION_CONFIG = {
   LARGE_AMOUNT_WARNING: 10000,
 } as const;
 
+/**
+ * Button state constants
+ */
 export const BUTTON_STATES = {
   IDLE: "idle",
   PROCESSING: "processing",
@@ -88,8 +47,9 @@ export const BUTTON_STATES = {
   ERROR: "error",
 } as const;
 
-export type ButtonState = (typeof BUTTON_STATES)[keyof typeof BUTTON_STATES];
-
+/**
+ * Validation error and warning messages
+ */
 export const VALIDATION_MESSAGES = {
   ERRORS: {
     WALLET_NOT_CONNECTED: "Please connect your wallet",

@@ -3,7 +3,8 @@
 import * as React from "react";
 import { Tabs } from "@base-ui-components/react/tabs";
 import { cn } from "@/lib/utils";
-import { OperationType, OPERATION_TYPES } from "@/types/operations";
+import { OperationType } from "@/types/ui-state";
+import { OPERATION_TYPES } from "@/constant/operation-constants";
 
 interface OperationTabsProps {
   activeTab: OperationType;

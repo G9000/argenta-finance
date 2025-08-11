@@ -4,10 +4,10 @@ import {
   SupportedChainId,
   SUPPORTED_CHAINS,
   USDC_DECIMALS,
-} from "@/lib/contracts";
+} from "@/constant/contracts";
 import { useChainBalances } from "./useChainBalances";
 import { CommonValidations } from "@/lib/validators";
-import type { BatchDepositState } from "@/types/operations";
+import type { BatchDepositState } from "@/types/ui-state";
 
 interface UseBatchDepositValidationParams {
   enabled?: boolean;
@@ -23,7 +23,6 @@ export function useBatchDepositValidation({
     }, {} as Record<SupportedChainId, string>)
   );
 
-  // Call hooks at top level for each supported chain
   const ethSepoliaBalance = useChainBalances({
     chainId: SupportedChainId.ETH_SEPOLIA,
     enabled,
@@ -33,7 +32,6 @@ export function useBatchDepositValidation({
     enabled,
   });
 
-  // Create balance mapping
   const chainBalances = {
     [SupportedChainId.ETH_SEPOLIA]: ethSepoliaBalance.walletBalance,
     [SupportedChainId.SEI_TESTNET]: seiTestnetBalance.walletBalance,

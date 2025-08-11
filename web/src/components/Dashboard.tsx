@@ -1,7 +1,7 @@
 "use client";
 
 import { useAccount } from "wagmi";
-import { SupportedChainId, getChainName } from "@/lib/contracts";
+import { SupportedChainId, getChainName } from "@/constant/contracts";
 import { formatBalance } from "@/lib/format";
 import { usePortfolioTotals, useChainBalances } from "@/hooks";
 

@@ -6,7 +6,7 @@ import {
   TRANSACTION_STEP_DESCRIPTIONS,
   TransactionStepState,
 } from "@/lib/transaction-steps";
-import { SupportedChainId } from "@/lib/contracts";
+import { SupportedChainId } from "@/constant/contracts";
 
 describe("Transaction Steps Utilities", () => {
   const baseState: TransactionStepState = {

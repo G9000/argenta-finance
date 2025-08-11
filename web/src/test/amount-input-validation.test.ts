@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { parseUnits } from "viem";
 import { validateInput } from "@/lib/validation";
-import { OPERATION_TYPES, VALIDATION_MESSAGES } from "@/types/operations";
+import {
+  OPERATION_TYPES,
+  VALIDATION_MESSAGES,
+} from "@/constant/operation-constants";
 
 // For brevity we focus on USDC only
 const USDC_TOKEN = {

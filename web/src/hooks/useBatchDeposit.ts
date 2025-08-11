@@ -8,11 +8,14 @@ import {
 import {
   createBatchDepositService,
   type BatchDepositService,
-  type BatchDepositResult,
-  type WagmiDependencies,
 } from "@/lib/batch-deposit-service";
-import type { ChainAmount } from "@/types/batch-operations";
-import { SupportedChainId } from "@/lib/contracts";
+import type {
+  ChainAmount,
+  BatchDepositResult,
+  WagmiDependencies,
+  BatchTransactionType,
+} from "@/types/batch-operations";
+import { SupportedChainId } from "@/constant/contracts";
 
 export interface UseBatchDepositReturn {
   service: BatchDepositService | null;
@@ -30,7 +33,7 @@ export interface UseBatchDepositReturn {
     total: number;
     percentage: number;
     currentChain?: SupportedChainId;
-    currentOperation?: "approval" | "deposit";
+    currentOperation?: BatchTransactionType;
     isRetrying?: boolean;
     retryingChainId?: SupportedChainId | null;
   };
@@ -56,7 +59,7 @@ export function useBatchDeposit(): UseBatchDepositReturn {
   >();
 
   const [currentOperation, setCurrentOperation] = useState<
-    "approval" | "deposit" | undefined
+    BatchTransactionType | undefined
   >();
 
   const [retryActiveChain, setRetryActiveChain] =

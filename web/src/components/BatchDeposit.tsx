@@ -10,7 +10,7 @@ import {
   USDC_DECIMALS,
   getUsdcAddress,
   getVaultAddress,
-} from "@/lib/contracts";
+} from "@/constant/contracts";
 import { formatBalance } from "@/lib/format";
 import {
   getCurrentStepLabel,
@@ -30,7 +30,8 @@ import { OperationTabs } from "./OperationTabs";
 import { BatchDepositInput } from "./BatchDepositInput";
 import { BatchOperationProgress } from "./BatchOperationProgress";
 import { getTokenLogo } from "@/lib/tokens";
-import { OPERATION_TYPES, OperationType } from "@/types/operations";
+import { OperationType } from "@/types/ui-state";
+import { OPERATION_TYPES } from "@/constant/operation-constants";
 import { createComponentLogger } from "@/lib/logger";
 import {
   ChainSelector,
@@ -219,8 +220,16 @@ export function BatchDeposit() {
     logger.debug("Starting batch deposit for", validAmounts.length, "chains");
 
     // Convert to ChainAmount format expected by service with proper amount parsing
-    const chainAmounts: { chainId: SupportedChainId; amount: string; amountWei: bigint }[] = [];
-    const parseErrors: { chainId: SupportedChainId; amount: string; reason: string }[] = [];
+    const chainAmounts: {
+      chainId: SupportedChainId;
+      amount: string;
+      amountWei: bigint;
+    }[] = [];
+    const parseErrors: {
+      chainId: SupportedChainId;
+      amount: string;
+      reason: string;
+    }[] = [];
 
     for (const { chainId, amount } of validAmounts) {
       try {
@@ -239,7 +248,8 @@ export function BatchDeposit() {
     if (parseErrors.length > 0) {
       const summary = parseErrors
         .map(
-          (e) => `chain ${e.chainId}: "${e.amount}" (${e.reason || "parse failed"})`
+          (e) =>
+            `chain ${e.chainId}: "${e.amount}" (${e.reason || "parse failed"})`
         )
         .join("; ");
       const aggregatedMessage = `Invalid amount(s) detected: ${summary}`;

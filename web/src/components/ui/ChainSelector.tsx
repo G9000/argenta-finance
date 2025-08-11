@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { getChainName, SupportedChainId } from "@/lib/contracts";
+import { getChainName, SupportedChainId } from "@/constant/contracts";
 
 interface ChainSelectorProps {
   chains: readonly SupportedChainId[];

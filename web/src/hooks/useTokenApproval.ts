@@ -6,7 +6,7 @@ import {
   useWaitForTransactionReceipt,
 } from "wagmi";
 import { erc20Abi, maxUint256 } from "viem";
-import { SupportedChainId } from "@/lib/contracts";
+import { SupportedChainId } from "@/constant/contracts";
 import { CommonValidations, validateOrThrow } from "@/lib/validators";
 
 export interface UseTokenApprovalParams {

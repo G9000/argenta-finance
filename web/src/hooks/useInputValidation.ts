@@ -1,11 +1,8 @@
 import { useMemo } from "react";
 import { useAccount, useBalance } from "wagmi";
-import { USDC_DECIMALS } from "@/lib/contracts";
-import {
-  OperationType,
-  SupportedTokenSymbol,
-  VALIDATION_CONFIG,
-} from "@/types/operations";
+import { USDC_DECIMALS } from "@/constant/contracts";
+import { OperationType, SupportedTokenSymbol } from "@/types/ui-state";
+import { VALIDATION_CONFIG } from "@/constant/operation-constants";
 import { validateInput, ValidationResult } from "@/lib/validation";
 
 export interface UseInputValidationProps {

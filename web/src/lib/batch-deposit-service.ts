@@ -4,12 +4,19 @@ import {
   SupportedChainId,
   getUsdcAddress,
   getVaultAddress,
-} from "@/lib/contracts";
+} from "@/constant/contracts";
 import { appChains } from "@/lib/chains";
 import { simpleVaultAbi } from "@/generated/wagmi";
 import { parseAmountToBigInt, isUserRejection } from "@/lib/vault-operations";
 import { createTypedEventEmitter } from "@/lib/typed-event-emitter";
-import type { ChainAmount } from "@/types/batch-operations";
+import type {
+  ChainAmount,
+  BatchDepositConfig,
+  BatchDepositResult,
+  BatchDepositEvents,
+  WagmiDependencies,
+} from "@/types/batch-operations";
+import { DEFAULT_BATCH_DEPOSIT_CONFIG as DEFAULT_CONFIG } from "@/constant/batch-operation-constants";
 
 function getViemChain(chainId: SupportedChainId): Chain {
   const chain = appChains.find((c) => c.id === chainId);
@@ -18,75 +25,6 @@ function getViemChain(chainId: SupportedChainId): Chain {
   }
   return chain;
 }
-
-export interface BatchDepositResult {
-  chainId: SupportedChainId;
-  status: "success" | "failed" | "cancelled" | "partial" | "retrying";
-  approvalTxHash?: Hash;
-  depositTxHash?: Hash;
-  error?: string;
-  userCancelled?: boolean;
-  startedAt: number;
-  completedAt?: number;
-}
-
-export interface BatchDepositEvents {
-  batchStarted: { chainCount: number; totalSteps: number };
-  batchCompleted: { results: BatchDepositResult[] };
-  batchFailed: { error: string };
-  chainStarted: { chainId: SupportedChainId; index: number };
-  chainCompleted: { chainId: SupportedChainId; result: BatchDepositResult };
-  chainFailed: { chainId: SupportedChainId; error: string };
-
-  stepStarted: {
-    chainId: SupportedChainId;
-    step: "switching" | "approving" | "depositing";
-    stepNumber: number;
-    totalSteps: number;
-    chainStep: number;
-    chainTotal: number;
-  };
-  stepCompleted: {
-    chainId: SupportedChainId;
-    step: "switching" | "approving" | "depositing";
-    stepNumber: number;
-    totalSteps: number;
-    chainStep: number;
-    chainTotal: number;
-  };
-  transactionSubmitted: {
-    chainId: SupportedChainId;
-    txHash: Hash;
-    type: "approval" | "deposit";
-  };
-  transactionConfirmed: {
-    chainId: SupportedChainId;
-    txHash: Hash;
-    type: "approval" | "deposit";
-  };
-  progressUpdated: { completed: number; total: number; percentage: number };
-}
-
-export interface WagmiDependencies {
-  publicClient: PublicClient;
-  walletClient: WalletClient;
-  userAddress: Address;
-  switchChain: (chainId: SupportedChainId) => Promise<void>;
-}
-
-export interface BatchDepositConfig {
-  timeoutMs: number;
-  confirmationTimeoutMs: number;
-  retryAttempts: number;
-  retryDelayMs: number;
-}
-
-export const DEFAULT_CONFIG: BatchDepositConfig = {
-  timeoutMs: 60000,
-  confirmationTimeoutMs: 300000,
-  retryAttempts: 3,
-  retryDelayMs: 1000,
-};
 
 /**
  * Wrap a promise with timeout

@@ -1,4 +1,4 @@
-import { getChainName, SupportedChainId } from "@/lib/contracts";
+import { getChainName, SupportedChainId } from "@/constant/contracts";
 
 export interface TransactionStepState {
   isApproving: boolean;

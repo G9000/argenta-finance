@@ -1,11 +1,11 @@
 "use client";
 
-import { getChainName, getBlockExplorerUrl } from "@/lib/contracts";
+import { getChainName, getBlockExplorerUrl } from "@/constant/contracts";
 import { cn } from "@/lib/utils";
 import type {
   BatchDepositProgress,
   ChainOperationStatus,
-} from "@/types/operations";
+} from "@/types/ui-state";
 
 interface BatchOperationProgressProps {
   progress: BatchDepositProgress;
@@ -36,15 +36,6 @@ export function BatchOperationProgress({
     }
   };
 
-  const CurrentStepLabel = ({
-    progress,
-  }: {
-    progress: BatchDepositProgress;
-  }) => (
-    <div className="mt-3 text-xs text-center text-gray-400 min-h-[1rem]">
-      {stepLabel(progress)}
-    </div>
-  );
   const getStatusIcon = (status: ChainOperationStatus["status"]) => {
     switch (status) {
       case "pending":

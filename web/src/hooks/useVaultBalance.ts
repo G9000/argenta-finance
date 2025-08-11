@@ -1,6 +1,6 @@
 import { useReadSimpleVaultGetBalance } from "@/generated/wagmi";
 import type { Address } from "viem";
-import type { SupportedChainId } from "@/lib/contracts";
+import type { SupportedChainId } from "@/constant/contracts";
 
 interface UseVaultBalanceParams {
   chainId: SupportedChainId;
