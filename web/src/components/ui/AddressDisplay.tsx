@@ -1,8 +1,11 @@
 "use client";
 
-import { useEnsName } from "@/hooks/useEnsName";
+import { useChainId } from "wagmi";
+import { useEnsName } from "@/hooks";
 import { EnsAvatar } from "./EnsAvatar";
 import { cn } from "@/lib/utils";
+import { isAddress } from "viem";
+import { SupportedChainId } from "@/constant/contracts";
 
 interface AddressDisplayProps {
   address: string;
@@ -21,9 +24,14 @@ export function AddressDisplay({
   avatarSize = 20,
   className = "",
 }: AddressDisplayProps) {
+  const currentChainId = useChainId();
+
+  const shouldResolveEns =
+    currentChainId === SupportedChainId.ETH_SEPOLIA || currentChainId === 1;
+
   const { data: ensName, isLoading: nameLoading } = useEnsName({
-    address,
-    enabled: true,
+    address: address && isAddress(address) ? address : undefined,
+    enabled: shouldResolveEns,
   });
 
   const formatAddress = (addr: string) => {
@@ -39,6 +47,7 @@ export function AddressDisplay({
       <div className={cn("flex items-center gap-2", className)}>
         <EnsAvatar
           address={address}
+          ensName={ensName ?? ""}
           size={avatarSize}
           className="flex-shrink-0"
         />

@@ -3,6 +3,7 @@ import { createPublicClient, http, isAddress } from "viem";
 import { mainnet } from "viem/chains";
 import { normalize } from "viem/ens";
 
+// I dont use wagmi  hook because it dint work im not sure why
 const ensClient = createPublicClient({
   chain: mainnet,
   transport: http(),

@@ -2,27 +2,48 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { useEnsName, useEnsAvatar } from "@/hooks/useEnsName";
+import { useChainId } from "wagmi";
+import { useEnsAvatar } from "@/hooks";
 import { cn } from "@/lib/utils";
+import { isAddress } from "viem";
+import { normalize } from "viem/ens";
+import { SupportedChainId } from "@/constant/contracts";
 
 interface EnsAvatarProps {
   address: string;
+  ensName: string;
   size?: number;
   className?: string;
   showFallback?: boolean;
 }
 
 export function EnsAvatar({
+  ensName,
   address,
   size = 32,
   className = "",
   showFallback = true,
 }: EnsAvatarProps) {
   const [imageError, setImageError] = useState(false);
-  const { data: ensName } = useEnsName({ address });
-  const { data: ensAvatar, isLoading } = useEnsAvatar({
-    name: ensName,
-    enabled: !!ensName,
+  const currentChainId = useChainId();
+
+  const shouldResolveEns =
+    currentChainId === SupportedChainId.ETH_SEPOLIA || currentChainId === 1;
+
+  const normalizedEnsName = ensName
+    ? (() => {
+        try {
+          return normalize(ensName);
+        } catch (error) {
+          console.warn("Failed to normalize ENS name:", ensName, error);
+          return ensName;
+        }
+      })()
+    : undefined;
+
+  const { data: ensAvatar, isLoading: avatarLoading } = useEnsAvatar({
+    name: normalizedEnsName || undefined,
+    enabled: shouldResolveEns && !!normalizedEnsName,
   });
 
   if (ensAvatar && !imageError) {
@@ -30,7 +51,7 @@ export function EnsAvatar({
       <div className={cn("relative flex-shrink-0", className)}>
         <Image
           src={ensAvatar}
-          alt={`${ensName || address} avatar`}
+          alt={`${normalizedEnsName || ensName || address} avatar`}
           width={size}
           height={size}
           className="rounded-full border border-white/20 object-cover"
@@ -40,13 +61,13 @@ export function EnsAvatar({
           onLoad={() => {
             setImageError(false);
           }}
-          unoptimized // Fallback for external images that might cause issues
+          unoptimized
         />
       </div>
     );
   }
 
-  if (isLoading && !imageError) {
+  if (avatarLoading && !imageError) {
     return (
       <div
         className={cn(
@@ -58,7 +79,8 @@ export function EnsAvatar({
     );
   }
 
-  if (showFallback && ensName) {
+  if (showFallback && (normalizedEnsName || ensName)) {
+    const displayName = normalizedEnsName || ensName;
     return (
       <div
         className={cn(
@@ -71,7 +93,26 @@ export function EnsAvatar({
           className="font-mono text-teal-200 font-medium"
           style={{ fontSize: Math.max(10, size * 0.4) }}
         >
-          {ensName.charAt(0).toUpperCase()}
+          {displayName?.charAt(0).toUpperCase() || "?"}
+        </span>
+      </div>
+    );
+  }
+
+  if (showFallback && address && isAddress(address)) {
+    return (
+      <div
+        className={cn(
+          "flex-shrink-0 rounded-full border border-white/20 bg-gradient-to-br from-gray-500/30 to-gray-600/30 flex items-center justify-center",
+          className
+        )}
+        style={{ width: size, height: size }}
+      >
+        <span
+          className="font-mono text-gray-200 font-medium"
+          style={{ fontSize: Math.max(10, size * 0.4) }}
+        >
+          {address.slice(2, 4).toUpperCase()}
         </span>
       </div>
     );

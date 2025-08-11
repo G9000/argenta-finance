@@ -1,10 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  useAccount,
-  usePublicClient,
-  useWalletClient,
-  useSwitchChain,
-} from "wagmi";
+import { useAccount } from "wagmi";
 import {
   createBatchDepositService,
   type BatchDepositService,
@@ -12,7 +7,6 @@ import {
 import type {
   ChainAmount,
   BatchDepositResult,
-  WagmiDependencies,
   BatchTransactionType,
 } from "@/types/batch-operations";
 import { SupportedChainId } from "@/constant/contracts";
@@ -41,9 +35,6 @@ export interface UseBatchDepositReturn {
 
 export function useBatchDeposit(): UseBatchDepositReturn {
   const { address } = useAccount();
-  const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
-  const { switchChain } = useSwitchChain();
 
   const [isExecuting, setIsExecuting] = useState(false);
   const [results, setResults] = useState<BatchDepositResult[]>([]);
@@ -67,36 +58,29 @@ export function useBatchDeposit(): UseBatchDepositReturn {
 
   const [serviceInitTick, setServiceInitTick] = useState(0);
 
-  // ref to avoid losing in-flight batch state when publicClient / walletClient objects change on chain switch
+  // ref to avoid losing in-flight batch state
   const serviceRef = useRef<BatchDepositService | null>(null);
 
-  // Initialize service when deps are ready. Recreate only on disconnect->reconnect.
+  // Initialize service when address is available
   useEffect(() => {
     if (!address) {
       serviceRef.current = null;
       return;
     }
-    if (!serviceRef.current && publicClient && walletClient) {
-      const wagmiDeps: WagmiDependencies = {
-        publicClient,
-        walletClient,
-        userAddress: address,
-        switchChain: (chainId: SupportedChainId) => {
-          return new Promise((resolve, reject) => {
-            switchChain(
-              { chainId },
-              {
-                onSuccess: () => resolve(),
-                onError: reject,
-              }
-            );
-          });
-        },
-      };
-      serviceRef.current = createBatchDepositService(wagmiDeps);
-      setServiceInitTick((t) => t + 1);
+    if (!serviceRef.current) {
+      try {
+        serviceRef.current = createBatchDepositService();
+        setServiceInitTick((t) => t + 1);
+      } catch (error) {
+        console.error("Failed to create batch deposit service:", error);
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Service initialization failed"
+        );
+      }
     }
-  }, [address, publicClient, walletClient, switchChain]);
+  }, [address]);
 
   const service = serviceRef.current;
 
@@ -258,25 +242,13 @@ export function useBatchDeposit(): UseBatchDepositReturn {
     async (chainAmounts: ChainAmount[]) => {
       // lazy init if somehow not ready yet
       if (!serviceRef.current) {
-        if (address && publicClient && walletClient) {
-          const wagmiDeps: WagmiDependencies = {
-            publicClient,
-            walletClient,
-            userAddress: address,
-            switchChain: (chainId: SupportedChainId) => {
-              return new Promise((resolve, reject) => {
-                switchChain(
-                  { chainId },
-                  {
-                    onSuccess: () => resolve(),
-                    onError: reject,
-                  }
-                );
-              });
-            },
-          };
-          serviceRef.current = createBatchDepositService(wagmiDeps);
-          setServiceInitTick((t) => t + 1);
+        if (address) {
+          try {
+            serviceRef.current = createBatchDepositService();
+            setServiceInitTick((t) => t + 1);
+          } catch (error) {
+            throw new Error("Service not available");
+          }
         }
       }
       if (!serviceRef.current) {
@@ -284,7 +256,7 @@ export function useBatchDeposit(): UseBatchDepositReturn {
       }
       return await serviceRef.current.executeBatch(chainAmounts);
     },
-    [address, publicClient, walletClient, switchChain]
+    [address]
   );
 
   const retryChain = useCallback(

@@ -20,17 +20,17 @@ export function NetworkBalanceCard({
   chainName,
 }: NetworkBalanceCardProps) {
   const {
-    walletBalance: {
-      data: walletBalance,
-      isLoading: walletLoading,
-      error: walletError,
-    },
-    vaultBalance: {
-      data: vaultBalance,
-      isLoading: vaultLoading,
-      error: vaultError,
-    },
+    data: balanceData,
+    isLoading: balancesLoading,
+    error: balancesError,
   } = useChainBalances({ chainId });
+
+  const walletBalance = balanceData?.walletBalance;
+  const vaultBalance = balanceData?.vaultBalance;
+  const walletLoading = balancesLoading;
+  const vaultLoading = balancesLoading;
+  const walletError = balancesError;
+  const vaultError = balancesError;
 
   const totalChainBalance = (walletBalance || 0n) + (vaultBalance || 0n);
   const chainLogo = getChainLogo(chainId);

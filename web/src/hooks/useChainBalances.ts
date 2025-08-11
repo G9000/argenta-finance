@@ -1,6 +1,6 @@
-import { useAccount } from "wagmi";
-import { useTokenBalance } from "./useTokenBalance";
-import { useVaultBalance } from "./useVaultBalance";
+import { useAccount, useReadContracts } from "wagmi";
+import { erc20Abi } from "viem";
+import { simpleVaultAbi } from "@/generated/wagmi";
 import {
   type SupportedChainId,
   getUsdcAddress,
@@ -20,25 +20,43 @@ export function useChainBalances({
 
   const usdcAddress = getUsdcAddress(chainId);
   const vaultAddress = getVaultAddress(chainId);
+  const contracts = userAddress
+    ? [
+        {
+          chainId,
+          abi: erc20Abi,
+          address: usdcAddress,
+          functionName: "balanceOf" as const,
+          args: [userAddress],
+        },
+        {
+          chainId,
+          abi: simpleVaultAbi,
+          address: vaultAddress,
+          functionName: "getBalance" as const,
+          args: [userAddress, usdcAddress],
+        },
+      ]
+    : [];
 
-  const walletBalance = useTokenBalance({
-    chainId,
-    tokenAddress: usdcAddress,
-    userAddress,
-    enabled: Boolean(userAddress && enabled),
+  const result = useReadContracts({
+    contracts,
+    query: {
+      enabled: Boolean(userAddress && enabled),
+      refetchInterval: 5000,
+    },
   });
 
-  const vaultBalance = useVaultBalance({
-    chainId,
-    vaultAddress,
-    userAddress,
-    tokenAddress: usdcAddress,
-    enabled: Boolean(userAddress && enabled),
-  });
+  const data = result.data
+    ? {
+        walletBalance: result.data[0]?.result as bigint,
+        vaultBalance: result.data[1]?.result as bigint,
+      }
+    : undefined;
 
   return {
-    walletBalance,
-    vaultBalance,
+    ...result,
+    data,
     addresses: {
       usdc: usdcAddress,
       vault: vaultAddress,

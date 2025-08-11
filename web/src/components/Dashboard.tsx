@@ -110,17 +110,17 @@ export function Dashboard() {
   }, [chainId]);
 
   const {
-    walletBalance: {
-      data: usdcBalance,
-      isLoading: walletLoading,
-      error: walletError,
-    },
-    vaultBalance: {
-      data: vaultBalance,
-      isLoading: vaultLoading,
-      error: vaultError,
-    },
+    data: balanceData,
+    isLoading: balancesLoading,
+    error: balancesError,
   } = useChainBalances({ chainId: selectedChainId });
+
+  const usdcBalance = balanceData?.walletBalance;
+  const vaultBalance = balanceData?.vaultBalance;
+  const walletLoading = balancesLoading;
+  const vaultLoading = balancesLoading;
+  const walletError = balancesError;
+  const vaultError = balancesError;
 
   const { withdrawValidation } = useOperationValidation({
     depositAmount: "",
