@@ -1,12 +1,16 @@
-import type { Address, Hash, PublicClient, WalletClient, Chain } from "viem";
-import { erc20Abi, createPublicClient, http } from "viem";
+import type { Address, Hash, Chain } from "viem";
+import { erc20Abi } from "viem";
 import {
-  SupportedChainId,
-  getUsdcAddress,
-  getVaultAddress,
-} from "@/constant/contracts";
+  readContract,
+  writeContract,
+  switchChain,
+  waitForTransactionReceipt,
+  getAccount,
+} from "@wagmi/core";
+import { SupportedChainId } from "@/constant/contracts";
 import { appChains } from "@/lib/chains";
 import { simpleVaultAbi } from "@/generated/wagmi";
+import { wagmiConfig } from "@/wagmi";
 import {
   parseAmountToBigInt,
   isUserRejection,
@@ -18,7 +22,6 @@ import type {
   BatchDepositConfig,
   BatchDepositResult,
   BatchDepositEvents,
-  WagmiDependencies,
 } from "@/types/batch-operations";
 import { DEFAULT_BATCH_DEPOSIT_CONFIG as DEFAULT_CONFIG } from "@/constant/batch-operation-constants";
 
@@ -126,30 +129,19 @@ export interface BatchDepositService {
  * Create a functional batch deposit service
  */
 export function createBatchDepositService(
-  wagmi: WagmiDependencies,
   config: BatchDepositConfig = DEFAULT_CONFIG
 ): BatchDepositService {
-  if (!/^0x[a-fA-F0-9]{40}$/.test(wagmi.userAddress)) {
-    throw new Error("Invalid user address provided to batch deposit service");
+  // Get the current user address from wagmi
+  const account = getAccount(wagmiConfig as any);
+  if (!account.address) {
+    throw new Error("No wallet connected");
+  }
+  const userAddress = account.address;
+
+  if (!/^0x[a-fA-F0-9]{40}$/.test(userAddress)) {
+    throw new Error("Invalid user address");
   }
 
-  if (!wagmi || typeof wagmi !== "object") {
-    throw new Error("wagmi dependencies object is required");
-  }
-  if (typeof wagmi.switchChain !== "function") {
-    throw new Error("Missing required dependency: switchChain function");
-  }
-  if (!wagmi.walletClient || typeof wagmi.walletClient !== "object") {
-    throw new Error("Missing required dependency: walletClient");
-  }
-  if (typeof (wagmi.walletClient as any).writeContract !== "function") {
-    throw new Error(
-      "Missing required dependency: walletClient.writeContract function"
-    );
-  }
-  if (wagmi.publicClient && typeof wagmi.publicClient !== "object") {
-    throw new Error("publicClient, if provided, must be an object");
-  }
   let isRunning = false;
   let isCancelled = false;
   let results: BatchDepositResult[] = [];
@@ -160,19 +152,6 @@ export function createBatchDepositService(
   let activeRetryChain: SupportedChainId | null = null;
 
   const events = createTypedEventEmitter<BatchDepositEvents>();
-
-  // Cache per-chain public clients to avoid using a stale single-chain client after switches
-  const publicClients: Partial<Record<SupportedChainId, PublicClient>> = {};
-
-  function getPublicClient(chainId: SupportedChainId): PublicClient {
-    if (!publicClients[chainId]) {
-      publicClients[chainId] = createPublicClient({
-        chain: getViemChain(chainId),
-        transport: http(),
-      });
-    }
-    return publicClients[chainId]!;
-  }
 
   function updateProgress() {
     const percentage = totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
@@ -223,34 +202,13 @@ export function createBatchDepositService(
           );
 
           try {
-            // Ensure we're really on the intended chain before reading.
-            // Some providers lag after switch; verify and wait if needed.
-            try {
-              // Prefer the configured publicClient's chain id; fall back to walletClient.chain?.id
-              const activeChainId: number | undefined =
-                wagmi.publicClient.chain?.id ?? wagmi.walletClient.chain?.id;
-
-              if (activeChainId !== undefined && activeChainId !== chainId) {
-                console.warn(
-                  `[BatchDeposit] Chain mismatch (expected ${chainId}, got ${activeChainId}) before allowance read. Retrying after short delay.`
-                );
-                await new Promise((r) => setTimeout(r, 500));
-              }
-            } catch (chainDetectError) {
-              console.warn(
-                `[BatchDeposit] Failed to determine active chain before allowance read (proceeding anyway):`,
-                chainDetectError
-              );
-            }
-
-            const currentAllowance = (await getPublicClient(
-              chainId
-            ).readContract({
+            const currentAllowance = await readContract(wagmiConfig as any, {
               address: tokenAddress,
               abi: erc20Abi,
               functionName: "allowance",
-              args: [wagmi.userAddress, spenderAddress],
-            })) as bigint;
+              args: [userAddress, spenderAddress],
+              chainId,
+            });
             return currentAllowance < amount;
           } catch (contractError) {
             const errorMsg =
@@ -277,7 +235,7 @@ export function createBatchDepositService(
   async function executeChainSwitch(chainId: SupportedChainId): Promise<void> {
     return withRetry(
       async () => {
-        await wagmi.switchChain(chainId);
+        await switchChain(wagmiConfig as any, { chainId });
         await new Promise((resolve) => setTimeout(resolve, 1000));
       },
       config,
@@ -295,13 +253,13 @@ export function createBatchDepositService(
 
     const hash = await withUserTransaction(
       async () => {
-        return await wagmi.walletClient.writeContract({
+        return await writeContract(wagmiConfig as any, {
           address: tokenAddress,
           abi: erc20Abi,
           functionName: "approve",
           args: [spenderAddress, amount],
-          account: wagmi.userAddress,
-          chain,
+          account: userAddress,
+          chainId,
         });
       },
       config,
@@ -317,7 +275,10 @@ export function createBatchDepositService(
     // Wait for confirmation with longer timeout and retry
     await withRetry(
       async () => {
-        await getPublicClient(chainId).waitForTransactionReceipt({ hash });
+        await waitForTransactionReceipt(wagmiConfig as any, {
+          hash,
+          chainId,
+        });
       },
       { ...config, timeoutMs: config.confirmationTimeoutMs },
       `Approval confirmation for chain ${chainId}`
@@ -342,13 +303,13 @@ export function createBatchDepositService(
 
     const hash = await withUserTransaction(
       async () => {
-        return await wagmi.walletClient.writeContract({
+        return await writeContract(wagmiConfig as any, {
           address: vaultAddress,
           abi: simpleVaultAbi,
           functionName: "deposit",
           args: [tokenAddress, amount],
-          account: wagmi.userAddress,
-          chain,
+          account: userAddress,
+          chainId,
         });
       },
       config,
@@ -361,7 +322,10 @@ export function createBatchDepositService(
     });
     await withRetry(
       async () => {
-        await getPublicClient(chainId).waitForTransactionReceipt({ hash });
+        await waitForTransactionReceipt(wagmiConfig as any, {
+          hash,
+          chainId,
+        });
       },
       { ...config, timeoutMs: config.confirmationTimeoutMs },
       `Deposit confirmation for chain ${chainId}`

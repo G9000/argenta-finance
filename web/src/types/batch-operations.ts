@@ -187,15 +187,6 @@ export interface BatchDepositEvents {
   progressUpdated: { completed: number; total: number; percentage: number };
 }
 
-export interface WagmiDependencies {
-  publicClient: PublicClient;
-  walletClient: WalletClient;
-  userAddress: Address;
-  switchChain: (chainId: SupportedChainId) => Promise<void>;
-}
-
-// Service Configuration Types
-
 export interface BatchDepositConfig {
   timeoutMs: number;
   confirmationTimeoutMs: number;
