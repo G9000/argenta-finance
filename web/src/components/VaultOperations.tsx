@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useState, useEffect } from "react";
 import { useAccount, useChainId } from "wagmi";
 import {
@@ -23,6 +24,7 @@ import { OperationInput } from "./OperationInput";
 import { OperationTabs } from "./OperationTabs";
 import { DepositInput } from "./DepositInput";
 import { BatchOperationProgress } from "./BatchOperationProgress";
+import { PortfolioTabs } from "./PortfolioTabs";
 import { getTokenLogo } from "@/lib/tokens";
 import { OperationType } from "@/types/ui-state";
 import { OPERATION_TYPES } from "@/constant/operation-constants";
@@ -40,6 +42,9 @@ export function VaultOperations() {
     OPERATION_TYPES.DEPOSIT
   );
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [portfolioTab, setPortfolioTab] = useState<"summary" | "breakdown">(
+    "summary"
+  );
 
   const [selectedChainId, setSelectedChainId] = useState<SupportedChainId>(
     isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
@@ -218,28 +223,8 @@ export function VaultOperations() {
       <div className="grid gap-10 bg-teal-500/20 px-4 py-10">
         <UserWelcomeHeader address={address} chainId={selectedChainId} />
 
-        {address && (
-          <BalanceDisplay
-            balances={[
-              {
-                label: "Available USDC Balance",
-                value: usdcBalance,
-                logo: getTokenLogo("USDC"),
-                error: walletError?.message,
-                decimals: USDC_DECIMALS,
-              },
-              {
-                label: "USDC in Vault",
-                value: vaultBalance,
-                logo: getTokenLogo("USDC"),
-                error: vaultError?.message,
-                decimals: USDC_DECIMALS,
-              },
-            ]}
-            isLoading={walletLoading || vaultLoading}
-          />
-        )}
-
+        {/* Portfolio Tabs */}
+        <PortfolioTabs activeTab={portfolioTab} onTabChange={setPortfolioTab} />
         <OperationTabs activeTab={activeTab} onTabChange={setActiveTab}>
           {activeTab === OPERATION_TYPES.DEPOSIT ? (
             <div className="space-y-4">
@@ -278,7 +263,6 @@ export function VaultOperations() {
             />
           )}
         </OperationTabs>
-
         {showDepositProgress && (
           <BatchOperationProgress
             progress={{
