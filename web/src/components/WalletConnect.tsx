@@ -92,7 +92,7 @@ export function WalletConnect() {
                     <div className="text-xs text-gray-400 uppercase tracking-wide">
                       Connected Wallet
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center">
                       <button
                         onClick={openChainModal}
                         style={{
