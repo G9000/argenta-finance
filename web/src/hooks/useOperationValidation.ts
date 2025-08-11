@@ -5,7 +5,7 @@ import {
   VALIDATION_CONFIG,
 } from "@/types/operations";
 import { SupportedChainId, USDC_DECIMALS, ETH_DECIMALS } from "@/lib/contracts";
-import { ValidationResult } from "@/lib/validators";
+import { ValidationResult } from "@/lib/validation";
 
 interface UseOperationValidationParams {
   depositAmount: string;

@@ -22,17 +22,43 @@ export function BatchOperationProgress({
   onCancelBatch,
   onDismiss,
 }: BatchOperationProgressProps) {
+  const stepLabel = (p: BatchDepositProgress) => {
+    if (p.isComplete) return "";
+    const chainName = p.currentChain ? getChainName(p.currentChain) : "";
+    if (!p.currentChain || !p.currentOperation) return "Preparing...";
+    switch (p.currentOperation) {
+      case "approval":
+        return `Approving USDC on ${chainName}`;
+      case "deposit":
+        return `Depositing on ${chainName}`;
+      default:
+        return `Processing ${chainName}`;
+    }
+  };
+
+  const CurrentStepLabel = ({
+    progress,
+  }: {
+    progress: BatchDepositProgress;
+  }) => (
+    <div className="mt-3 text-xs text-center text-gray-400 min-h-[1rem]">
+      {stepLabel(progress)}
+    </div>
+  );
   const getStatusIcon = (status: ChainOperationStatus["status"]) => {
     switch (status) {
       case "pending":
         return "⏳";
       case "approving":
       case "depositing":
+      case "retrying":
         return (
           <div className="size-3 border border-current border-t-transparent rounded-full animate-spin" />
         );
       case "completed":
         return "✅";
+      case "partial":
+        return "🟡";
       case "failed":
         return "❌";
       default:
@@ -48,12 +74,22 @@ export function BatchOperationProgress({
         return "Approving USDC";
       case "depositing":
         return "Depositing";
+      case "retrying":
+        return "Retrying...";
+      case "partial":
+        return "Approval complete — deposit cancelled";
       case "completed":
         return "Completed";
       case "failed":
+        if (
+          chainStatus.error?.includes("cancelled") ||
+          chainStatus.error?.includes("User cancelled")
+        ) {
+          return `Cancelled: ${chainStatus.error}`;
+        }
         return `Failed: ${chainStatus.error || "Unknown error"}`;
       default:
-        return "Unknown";
+        return "";
     }
   };
 
@@ -63,9 +99,12 @@ export function BatchOperationProgress({
         return "text-gray-400";
       case "approving":
       case "depositing":
+      case "retrying":
         return "text-blue-400";
       case "completed":
         return "text-green-400";
+      case "partial":
+        return "text-yellow-400";
       case "failed":
         return "text-red-400";
       default:
@@ -95,9 +134,11 @@ export function BatchOperationProgress({
               </h2>
               <div className="text-sm text-gray-400">
                 {progress.isComplete
-                  ? progress.hasFailures
-                    ? "Some operations failed"
-                    : "All operations completed successfully"
+                  ? progress.batchCompletedSuccessfully
+                    ? progress.hasFailures
+                      ? "Batch completed with some failures"
+                      : "All operations completed successfully"
+                    : "Batch operation failed"
                   : `Step ${progress.currentStep} of ${progress.totalSteps}`}
               </div>
             </div>
@@ -128,6 +169,20 @@ export function BatchOperationProgress({
           )}
         </div>
 
+        {/* Current Step Section */}
+        {!progress.isComplete && (
+          <div className="border-b border-white/10 px-6 py-4 bg-gray-800/50">
+            <div className="text-center">
+              <div className="text-lg font-medium text-white mb-1">
+                {stepLabel(progress)}
+              </div>
+              <div className="text-xs text-gray-400">
+                Current operation in progress
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Chain Status List */}
         <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
           {progress.chainStatuses.map((chainStatus) => (
@@ -137,10 +192,13 @@ export function BatchOperationProgress({
                 "border rounded-lg p-4 transition-colors",
                 chainStatus.status === "completed"
                   ? "border-green-500/30 bg-green-500/5"
+                  : chainStatus.status === "partial"
+                  ? "border-yellow-400/30 bg-yellow-400/5"
                   : chainStatus.status === "failed"
                   ? "border-red-500/30 bg-red-500/5"
                   : chainStatus.status === "approving" ||
-                    chainStatus.status === "depositing"
+                    chainStatus.status === "depositing" ||
+                    chainStatus.status === "retrying"
                   ? "border-blue-500/30 bg-blue-500/5"
                   : "border-white/10"
               )}
@@ -166,26 +224,50 @@ export function BatchOperationProgress({
                 </div>
 
                 {/* Action Buttons */}
-                {chainStatus.status === "failed" && chainStatus.canRetry && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => onRetryChain?.(chainStatus.chainId)}
-                      className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                    >
-                      Retry
-                    </button>
-                    <button
-                      onClick={() => onSkipChain?.(chainStatus.chainId)}
-                      className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-                    >
-                      Skip
-                    </button>
-                  </div>
-                )}
+                {(chainStatus.status === "failed" ||
+                  chainStatus.status === "partial") &&
+                  chainStatus.canRetry && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          if (progress.isRetrying) return; // hard guard
+                          onRetryChain?.(chainStatus.chainId);
+                        }}
+                        disabled={Boolean(
+                          progress.isRetrying &&
+                            progress.retryingChainId !== chainStatus.chainId
+                        )}
+                        className={cn(
+                          "px-3 py-1 text-xs rounded transition-colors",
+                          !!progress.isRetrying &&
+                            progress.retryingChainId !== chainStatus.chainId
+                            ? "bg-gray-600 text-gray-300 cursor-not-allowed"
+                            : "bg-blue-500 text-white hover:bg-blue-600",
+                          progress.isRetrying &&
+                            progress.retryingChainId !== chainStatus.chainId &&
+                            "pointer-events-none"
+                        )}
+                      >
+                        {chainStatus.status === "partial"
+                          ? "Retry Deposit"
+                          : "Retry"}
+                      </button>
+                      {onSkipChain && (
+                        <button
+                          onClick={() => onSkipChain?.(chainStatus.chainId)}
+                          className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                        >
+                          Skip
+                        </button>
+                      )}
+                    </div>
+                  )}
               </div>
 
               {/* Transaction Links */}
-              {(chainStatus.approveTxHash || chainStatus.depositTxHash) && (
+              {(chainStatus.approveTxHash ||
+                chainStatus.depositTxHash ||
+                chainStatus.status === "partial") && (
                 <div className="space-y-2 pt-2 border-t border-white/10">
                   {chainStatus.approveTxHash && (
                     <div className="flex items-center justify-between text-xs">
@@ -206,7 +288,7 @@ export function BatchOperationProgress({
                       </a>
                     </div>
                   )}
-                  {chainStatus.depositTxHash && (
+                  {chainStatus.depositTxHash ? (
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-400">Deposit Transaction</span>
                       <a
@@ -222,7 +304,12 @@ export function BatchOperationProgress({
                         {chainStatus.depositTxHash.slice(-6)} ↗
                       </a>
                     </div>
-                  )}
+                  ) : chainStatus.status === "partial" ? (
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>Deposit Transaction</span>
+                      <span className="italic">Not submitted</span>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>

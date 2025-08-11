@@ -36,31 +36,40 @@ export function BatchDepositInput({
 }: BatchDepositInputProps) {
   const { address } = useAccount();
 
-  // Get balances for all chains
-  const chainBalances = SUPPORTED_CHAINS.reduce((acc, chainId) => {
-    const { walletBalance } = useChainBalances({ chainId });
-    acc[chainId] = walletBalance;
-    return acc;
-  }, {} as Record<SupportedChainId, ReturnType<typeof useChainBalances>["walletBalance"]>);
+  // Get balances for all chains (call hooks at top level)
+  const ethSepoliaBalance = useChainBalances({
+    chainId: SupportedChainId.ETH_SEPOLIA,
+  });
+  const seiTestnetBalance = useChainBalances({
+    chainId: SupportedChainId.SEI_TESTNET,
+  });
 
-  const stepValue = USDC_DECIMALS > 0 ? `0.${"0".repeat(USDC_DECIMALS - 1)}1` : "1";
+  // Create balance mapping
+  const chainBalances = {
+    [SupportedChainId.ETH_SEPOLIA]: ethSepoliaBalance.walletBalance,
+    [SupportedChainId.SEI_TESTNET]: seiTestnetBalance.walletBalance,
+  };
 
-  const hasAnyAmount = Object.values(batchState.inputs).some(amount => {
+  const stepValue =
+    USDC_DECIMALS > 0 ? `0.${"0".repeat(USDC_DECIMALS - 1)}1` : "1";
+
+  const hasAnyAmount = Object.values(batchState.inputs).some((amount) => {
     const numericAmount = Number(amount);
     return amount && Number.isFinite(numericAmount) && numericAmount > 0;
   });
 
-  const isButtonDisabled = !hasAnyAmount || !batchState.isValid || disabled || isProcessing;
+  const isButtonDisabled =
+    !hasAnyAmount || !batchState.isValid || disabled || isProcessing;
 
   const getTotalAmount = () => {
     try {
       const total = Object.values(batchState.inputs)
-        .filter(amount => amount && Number(amount) > 0)
+        .filter((amount) => amount && Number(amount) > 0)
         .reduce((sum, amount) => {
           const amountInWei = parseUnits(amount, USDC_DECIMALS);
           return sum + amountInWei;
         }, 0n);
-      
+
       return formatUnits(total, USDC_DECIMALS);
     } catch {
       return "0";
@@ -68,7 +77,7 @@ export function BatchDepositInput({
   };
 
   const getActiveChainCount = () => {
-    return Object.values(batchState.inputs).filter(amount => {
+    return Object.values(batchState.inputs).filter((amount) => {
       const numericAmount = Number(amount);
       return amount && Number.isFinite(numericAmount) && numericAmount > 0;
     }).length;
@@ -101,7 +110,9 @@ export function BatchDepositInput({
               key={chainId}
               className={cn(
                 "border border-white/10 rounded-lg p-4 space-y-3 transition-colors",
-                amount && Number(amount) > 0 && "border-teal-500/30 bg-teal-500/5"
+                amount &&
+                  Number(amount) > 0 &&
+                  "border-teal-500/30 bg-teal-500/5"
               )}
             >
               {/* Chain Header */}
@@ -135,13 +146,11 @@ export function BatchDepositInput({
                     className="rounded-full"
                   />
                   <span className="font-mono text-gray-300">
-                    {chainBalance.isLoading ? (
-                      "Loading..."
-                    ) : chainBalance.error ? (
-                      "Error"
-                    ) : (
-                      `${formatBalance(chainBalance.data)} USDC`
-                    )}
+                    {chainBalance.isLoading
+                      ? "Loading..."
+                      : chainBalance.error
+                      ? "Error"
+                      : `${formatBalance(chainBalance.data)} USDC`}
                   </span>
                 </div>
               </div>
@@ -209,7 +218,9 @@ export function BatchDepositInput({
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-400">Active Chains</span>
-              <span className="text-white font-mono">{getActiveChainCount()}</span>
+              <span className="text-white font-mono">
+                {getActiveChainCount()}
+              </span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-400">Total Amount</span>

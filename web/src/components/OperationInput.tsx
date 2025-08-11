@@ -5,8 +5,8 @@ import {
   OperationType,
   OPERATION_TYPES,
   SupportedTokenSymbol,
-  ValidationResult,
 } from "@/types/operations";
+import { ValidationResult } from "@/lib/validation";
 
 interface OperationInputProps {
   type: OperationType;

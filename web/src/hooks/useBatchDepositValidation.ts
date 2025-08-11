@@ -23,14 +23,21 @@ export function useBatchDepositValidation({
     }, {} as Record<SupportedChainId, string>)
   );
 
-  const chainBalances = SUPPORTED_CHAINS.reduce((acc, chainId) => {
-    const { walletBalance } = useChainBalances({
-      chainId,
-      enabled,
-    });
-    acc[chainId] = walletBalance;
-    return acc;
-  }, {} as Record<SupportedChainId, ReturnType<typeof useChainBalances>["walletBalance"]>);
+  // Call hooks at top level for each supported chain
+  const ethSepoliaBalance = useChainBalances({
+    chainId: SupportedChainId.ETH_SEPOLIA,
+    enabled,
+  });
+  const seiTestnetBalance = useChainBalances({
+    chainId: SupportedChainId.SEI_TESTNET,
+    enabled,
+  });
+
+  // Create balance mapping
+  const chainBalances = {
+    [SupportedChainId.ETH_SEPOLIA]: ethSepoliaBalance.walletBalance,
+    [SupportedChainId.SEI_TESTNET]: seiTestnetBalance.walletBalance,
+  };
 
   const updateAmount = useCallback(
     (chainId: SupportedChainId, amount: string) => {

@@ -25,7 +25,14 @@ export interface BatchDepositState {
 
 export interface ChainOperationStatus {
   chainId: SupportedChainId;
-  status: "pending" | "approving" | "depositing" | "completed" | "failed";
+  status:
+    | "pending"
+    | "approving"
+    | "depositing"
+    | "completed"
+    | "failed"
+    | "retrying"
+    | "partial";
   approveTxHash?: string;
   depositTxHash?: string;
   error?: string;
@@ -41,6 +48,10 @@ export interface BatchDepositProgress {
   chainStatuses: ChainOperationStatus[];
   isComplete: boolean;
   hasFailures: boolean;
+  batchCompletedSuccessfully: boolean;
+  // Runtime-only flags (not persisted)
+  isRetrying?: boolean;
+  retryingChainId?: SupportedChainId | null;
 }
 
 export const SUPPORTED_TOKENS = {

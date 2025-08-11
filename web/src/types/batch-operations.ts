@@ -74,7 +74,7 @@ export interface BatchExecutionState {
   // Statistics
   successCount: number;
   failureCount: number;
-  totalAmount: string; // Sum of all amounts being processed
+  totalAmountWei: bigint;
 }
 
 /**
