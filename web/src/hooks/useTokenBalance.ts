@@ -24,6 +24,7 @@ export function useTokenBalance({
     args: [userAddress || "0x0000000000000000000000000000000000000000"],
     query: {
       enabled: Boolean(userAddress && enabled),
+      refetchInterval: 5000,
     },
   });
 }

@@ -114,7 +114,6 @@ export function BatchOperationProgress({
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
       <div className="bg-gray-900 border border-white/20 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden">
-        {/* Header */}
         <div className="border-b border-white/10 p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -143,7 +142,6 @@ export function BatchOperationProgress({
             )}
           </div>
 
-          {/* Overall Progress */}
           {!progress.isComplete && (
             <div className="mt-4">
               <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
@@ -160,7 +158,6 @@ export function BatchOperationProgress({
           )}
         </div>
 
-        {/* Current Step Section */}
         {!progress.isComplete && (
           <div className="border-b border-white/10 px-6 py-4 bg-gray-800/50">
             <div className="text-center">

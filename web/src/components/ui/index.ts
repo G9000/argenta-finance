@@ -4,6 +4,10 @@ export { LoadingSpinner } from "./LoadingSpinner";
 export { TransactionProgress } from "./TransactionProgress";
 export { Alert, ErrorDisplay } from "./Alert";
 export { DebugInfo } from "./DebugInfo";
+export { BalanceAmount } from "./BalanceAmount";
+export { BalanceItem } from "./BalanceItem";
+export { ChainHeader } from "./ChainHeader";
+export { CardContainer } from "./CardContainer";
 
 export type { ProgressStep } from "./TransactionProgress";
 export type { AlertType } from "./Alert";

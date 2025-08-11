@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 import { useAccount, useChainId } from "wagmi";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   getChainName,
   isSupportedChainId,
@@ -37,6 +38,7 @@ const logger = createComponentLogger("VaultOperations");
 export function VaultOperations() {
   const { address } = useAccount();
   const chainId = useChainId();
+  const queryClient = useQueryClient();
 
   // Operation state
   const [activeTab, setActiveTab] = useState<OperationType>(
@@ -85,8 +87,30 @@ export function VaultOperations() {
   useEffect(() => {
     if (!isExecuting && depositResults.length > 0) {
       setDepositCompletedSuccessfully(!depositError);
+
+      // Invalidate balance queries after successful deposits
+      if (!depositError) {
+        const hasSuccessfulDeposits = depositResults.some(
+          (result) => result.status === "success"
+        );
+
+        if (hasSuccessfulDeposits) {
+          // Invalidate all balance-related queries to refresh portfolio values
+          // This includes both wallet balances (ERC20) and vault balances
+          queryClient.invalidateQueries({
+            queryKey: ["readContract"],
+          });
+
+          // Also invalidate multicall queries used by usePortfolioTotals
+          queryClient.invalidateQueries({
+            queryKey: ["readContracts"],
+          });
+
+          logger.debug("Invalidated balance queries after successful deposits");
+        }
+      }
     }
-  }, [isExecuting, depositResults.length, depositError]);
+  }, [isExecuting, depositResults.length, depositError, queryClient]);
 
   // Keep selectedChainId in sync especially when switching from the nav
   useEffect(() => {
@@ -131,6 +155,24 @@ export function VaultOperations() {
     try {
       const result = await retryChain(chainId as SupportedChainId, amount);
       logger.debug(`Retry completed for chain ${chainId}:`, result);
+
+      // Invalidate balance queries after successful retry
+      if (result.status === "success") {
+        // Invalidate all balance-related queries to refresh portfolio values
+        queryClient.invalidateQueries({
+          queryKey: ["readContract"],
+        });
+
+        // Also invalidate multicall queries used by usePortfolioTotals
+        queryClient.invalidateQueries({
+          queryKey: ["readContracts"],
+        });
+
+        logger.debug(
+          `Invalidated balance queries after successful retry for chain ${chainId}`
+        );
+      }
+
       // The result will be automatically updated via the event listeners
       // TODO:: maybe add TOASTTT
     } catch (error) {

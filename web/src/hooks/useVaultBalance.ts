@@ -23,6 +23,7 @@ export function useVaultBalance({
     args: userAddress ? [userAddress, tokenAddress] : undefined,
     query: {
       enabled: Boolean(userAddress && enabled),
+      refetchInterval: 5000,
     },
   });
 }

@@ -17,7 +17,7 @@ interface UserWelcomeHeaderProps {
 export function UserWelcomeHeader({
   address,
   chainId,
-  title = "Manage your funds",
+  title = "Manage your funds with Argenta",
   subtitle,
   className,
 }: UserWelcomeHeaderProps) {
