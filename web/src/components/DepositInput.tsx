@@ -98,6 +98,14 @@ export function DepositInput({
     }).length;
   };
 
+  const getActiveChainIds = () => {
+    return Array.from(activeChains).filter((chainId) => {
+      const amount = batchState.inputs[chainId] || "";
+      const numericAmount = Number(amount);
+      return amount && Number.isFinite(numericAmount) && numericAmount > 0;
+    });
+  };
+
   const getButtonText = () => {
     const activeChains = getActiveChainCount();
     if (isProcessing) {
@@ -178,7 +186,6 @@ export function DepositInput({
         )}
       </div>
 
-      {/* Chain Inputs */}
       <div className="space-y-4">
         {Array.from(activeChains).map((chainId) => {
           const chainBalance = chainBalances[chainId];
@@ -210,15 +217,13 @@ export function DepositInput({
         })}
       </div>
 
-      {/* Summary */}
       {hasAnyAmount && (
         <DepositSummary
-          activeChainCount={getActiveChainCount()}
+          activeChainIds={getActiveChainIds()}
           totalAmount={getTotalAmount()}
         />
       )}
 
-      {/* Execute Button */}
       <ExecuteButton
         onClick={onExecuteDeposit}
         disabled={isButtonDisabled}

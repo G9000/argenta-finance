@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { LoadingSpinner } from "./LoadingSpinner";
 
 interface ExecuteButtonProps {
   onClick: () => void;
@@ -21,18 +22,24 @@ export function ExecuteButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "w-full p-4 font-mono uppercase text-sm transition-colors relative",
+        "relative w-full border border-white/10 bg-gradient-to-br font-mono text-sm uppercase tracking-wide",
+        "px-4 py-3 transition-colors duration-200",
+        "focus-visible:outline-none focus-visible:bg-teal-500/5",
         !disabled
-          ? "bg-teal-500 text-white hover:bg-teal-600"
-          : "bg-gray-700 text-gray-400 cursor-not-allowed"
+          ? "from-teal-500/90 to-teal-600/90 text-white hover:from-teal-500 hover:to-teal-600 active:from-teal-600 active:to-teal-700"
+          : "from-gray-800/50 to-gray-900/50 text-gray-400 cursor-not-allowed"
       )}
     >
-      {isProcessing && (
-        <div className="absolute left-4 top-1/2 -translate-y-1/2">
-          <div className="size-4 border border-current border-t-transparent rounded-full animate-spin" />
-        </div>
-      )}
-      <span className={cn(isProcessing && "ml-6")}>{text}</span>
+      <div className="flex items-center justify-center gap-3">
+        {isProcessing && (
+          <LoadingSpinner
+            size="sm"
+            className="text-white/80"
+            aria-label="Processing"
+          />
+        )}
+        <span>{text}</span>
+      </div>
     </button>
   );
 }
