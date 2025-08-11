@@ -11,6 +11,13 @@ const nextConfig: NextConfig = {
     // your project has type errors.
     ignoreBuildErrors: true,
   },
+  env: {
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID:
+      process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
+    NEXT_PUBLIC_SEPOLIA_RPC_URL: process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL,
+    NEXT_PUBLIC_SEI_TESTNET_RPC_URL:
+      process.env.NEXT_PUBLIC_SEI_TESTNET_RPC_URL,
+  },
 };
 
 export default nextConfig;

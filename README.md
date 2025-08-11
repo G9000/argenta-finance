@@ -52,3 +52,61 @@ cp .env.example .env       # Fill in required private key and RPC URLs
 pnpm install               # or npm install / yarn
 pnpm start                 # Runs transfer.js to bridge USDC to Sei Testnet
 ```
+
+## Why We Use `createBatchDepositService` instead of WAGMI hook
+
+Our batch deposit service was designed to handle **multi-chain deposits** with high reliability, especially in a DeFi context where network conditions and RPC reliability vary widely. Instead of relying on simple sequential calls, we built a **resilient, event-driven execution model**.
+
+### Key Advantages
+
+1. **Multi-Chain Support Without Stale Clients**  
+   We create **per-chain `PublicClient` instances** via `viem` instead of reusing a single one.  
+   This avoids “stale provider” issues after chain switches, ensuring each chain’s transactions are always sent to the correct RPC.
+
+2. **Retry + Timeout for Unreliable RPCs**
+
+   - All core blockchain interactions (`allowance`, `approve`, `deposit`, `waitForTransactionReceipt`) are wrapped with:
+     - `withTimeout` — prevents a call from hanging forever.
+     - `withRetry` — uses exponential backoff for transient RPC failures.
+   - **Benefit:** Users aren’t forced to restart the whole batch because of one slow RPC.
+
+3. **User-Friendly Cancellation**  
+   Users can cancel at any stage, stopping further operations instantly (`isCancelled` flag).  
+   This is crucial for avoiding accidental multi-chain deposits if they change their mind mid-process.
+
+4. **User Rejection Handling**
+
+   - If a user rejects a transaction, we **stop retrying** immediately (`withUserTransaction`).
+   - Prevents spammy repeated wallet prompts for the same action.
+
+5. **Progress Tracking & UI Integration**
+
+   - Emits typed events (`progressUpdated`, `stepStarted`, `stepCompleted`, etc.) so the UI can update in real-time.
+   - Allows showing per-chain and overall batch progress without hardcoding UI logic into the service.
+
+6. **Granular Retry per Chain**
+   - Failed chains can be retried individually with `retryChain` without restarting the whole batch.
+   - Optimizes UX for partial successes.
+
+### Why Not Just Call Wagmi Directly in Components?
+
+We could directly call `wagmi` hooks in components for each chain, but:
+
+- It would spread retry, timeout, and error-handling logic across multiple UI files.
+- It would make progress tracking harder since UI state and business logic would be mixed.
+- It would be harder to reuse this logic in other contexts (e.g., CLI tool, backend service, automation script).
+
+By **centralizing all batch execution logic** into `createBatchDepositService`, we get:
+
+- A single source of truth for batch deposit rules.
+- Cleaner UI code that only listens for events and updates the interface.
+- Easier unit testing of the batch logic without spinning up the full frontend.
+
+---
+
+**In short:**  
+`createBatchDepositService` gives us a **modular, resilient, and testable foundation** for multi-chain deposit flows — one that handles chain switching, approvals, deposits, retries, timeouts, progress tracking, and user cancellations in a single cohesive service.
+
+```
+
+```
