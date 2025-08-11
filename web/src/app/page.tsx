@@ -4,12 +4,12 @@ import { VaultOperations } from "@/components/VaultOperations";
 
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col row-start-2 items-center sm:items-start w-3xl">
+    <div className="font-sans flex flex-col min-h-screen px-3 pt-4 pb-20 gap-8 sm:px-6 sm:pt-8 sm:gap-12 md:px-10 md:pt-12">
+      <main className="flex flex-col flex-1 items-stretch w-full max-w-3xl mx-auto gap-6 sm:gap-8">
         <WalletConnect />
         <VaultOperations />
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
+      <footer className="mt-auto flex gap-4 flex-wrap items-center justify-center pt-6 sm:pt-8 border-t border-white/5 text-center">
         <span className="uppercase text-xs font-mon text-teal-100/60">
           Argenta Finance
         </span>

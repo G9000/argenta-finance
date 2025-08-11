@@ -241,7 +241,7 @@ export function VaultOperations() {
 
   return (
     <div className="w-full">
-      <div className="grid gap-10 bg-teal-500/20 px-4 py-10">
+      <div className="grid gap-6 sm:gap-8 md:gap-10 bg-teal-500/10 px-3 py-6 sm:px-6 sm:py-8 md:px-8 md:py-10">
         <UserWelcomeHeader address={address} chainId={selectedChainId} />
 
         <PortfolioTabs activeTab={portfolioTab} onTabChange={setPortfolioTab} />
@@ -342,7 +342,7 @@ export function VaultOperations() {
                 false)) && (
             <button
               onClick={() => setShowDepositProgress(true)}
-              className="fixed bottom-4 right-4 z-40 px-4 py-3 shadow-lg border border-teal-500/40 bg-gradient-to-br from-gray-900/90 to-gray-800/80 backdrop-blur-sm text-teal-300 hover:text-white hover:from-gray-800 hover:to-gray-700 transition-colors font-mono text-xs uppercase tracking-wide flex items-center gap-3"
+              className="fixed bottom-4 right-4 z-40 px-4 py-3 shadow-lg border border-teal-500/40 bg-gradient-to-br from-gray-900/95 to-gray-800/90 backdrop-blur-md text-teal-300 hover:text-white hover:from-gray-800 hover:to-gray-700 transition-colors font-mono text-xs uppercase tracking-wide flex items-center gap-3 rounded-lg max-w-[70vw]"
             >
               <div className="flex flex-col text-left">
                 <span className="text-[10px] text-gray-400 uppercase tracking-wider">

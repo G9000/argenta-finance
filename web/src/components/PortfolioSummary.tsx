@@ -50,7 +50,7 @@ export function PortfolioSummary() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-6 pt-3 border-t border-white/5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-3 border-t border-white/5">
           <div className="space-y-2">
             <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">
               Total in Vaults

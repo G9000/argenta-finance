@@ -34,11 +34,16 @@ export function UserWelcomeHeader({
     )} YOU ARE CURRENTLY ON ${getChainName(chainId).toUpperCase()}`;
 
   return (
-    <div className={cn("relative my-10 font-mono", className)}>
-      <span className="text-[10px] text-teal-100/40">{displaySubtitle}</span>
-      <div className="text-4xl w-10/12 font-mono uppercase">{title}</div>
+    <div className={cn("relative my-5 md:my-10 font-mono", className)}>
+      <span className="text-[10px] text-teal-100/40 block mb-2">
+        {displaySubtitle}
+      </span>
+      <div className="text-2xl sm:text-3xl md:text-4xl w-full sm:w-10/12 font-mono uppercase leading-tight">
+        {title}
+      </div>
 
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-70">
+      {/* Desktop logo */}
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-70 hidden md:block">
         <div className="relative p-4 border border-teal-100/10 rounded-full">
           {!logoError ? (
             <Image
@@ -60,6 +65,28 @@ export function UserWelcomeHeader({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Mobile chain indicator */}
+      <div className="flex items-center gap-2 mt-3 md:hidden">
+        <div className="relative w-6 h-6 border border-teal-100/20 rounded-full p-1 flex items-center justify-center">
+          {!logoError ? (
+            <Image
+              src={getChainLogo(chainId)}
+              alt={`${getChainName(chainId)} logo`}
+              width={16}
+              height={16}
+              className="grayscale"
+              onError={() => setLogoError(true)}
+              onLoad={() => setLogoError(false)}
+            />
+          ) : (
+            <div className="w-3 h-3 bg-gray-600 rounded-full"></div>
+          )}
+        </div>
+        <span className="text-xs text-teal-100/60 font-mono uppercase">
+          {getChainName(chainId)}
+        </span>
       </div>
     </div>
   );
