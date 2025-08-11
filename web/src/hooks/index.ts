@@ -18,28 +18,5 @@ export type {
   UseTokenApprovalReturn,
 } from "./useTokenApproval";
 
-export { useVaultDepositTransaction } from "./useVaultDepositTransaction";
-export type {
-  UseVaultDepositTransactionParams,
-  UseVaultDepositTransactionReturn,
-} from "./useVaultDepositTransaction";
-
-// Progress tracking hooks
-export { useDepositProgress } from "./useDepositProgress";
-export type {
-  DepositStep,
-  DepositProgress,
-  UseDepositProgressParams,
-} from "./useDepositProgress";
-
-// Vault operation hooks
-export { useVaultDeposit } from "./useVaultDeposit";
-export type {
-  VaultDepositState,
-  VaultDepositActions,
-  UseVaultDepositParams,
-  UseVaultDepositReturn,
-} from "./useVaultDeposit";
-
 // Batch operation hooks
 export { useBatchDepositValidation } from "./useBatchDepositValidation";

@@ -1,57 +1,50 @@
 "use client";
 
+import * as React from "react";
 import { useState, useEffect } from "react";
-import { useAccount, useChainId, useSwitchChain } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import {
   getChainName,
   isSupportedChainId,
   SupportedChainId,
-  SUPPORTED_CHAINS,
   USDC_DECIMALS,
   getUsdcAddress,
   getVaultAddress,
 } from "@/constant/contracts";
 import { formatBalance } from "@/lib/format";
-import {
-  getCurrentStepLabel,
-  getCurrentStepDescription,
-} from "@/lib/transaction-steps";
 import { parseAmountToBigInt } from "@/lib/vault-operations";
 import {
   useChainBalances,
   useOperationValidation,
-  useVaultDeposit,
   useBatchDepositValidation,
 } from "@/hooks";
 import { useBatchDeposit } from "@/hooks/useBatchDeposit";
 import { BalanceDisplay } from "./BalanceDisplay";
 import { OperationInput } from "./OperationInput";
 import { OperationTabs } from "./OperationTabs";
-import { BatchDepositInput } from "./BatchDepositInput";
+import { DepositInput } from "./DepositInput";
 import { BatchOperationProgress } from "./BatchOperationProgress";
+import { PortfolioTabs } from "./PortfolioTabs";
 import { getTokenLogo } from "@/lib/tokens";
 import { OperationType } from "@/types/ui-state";
 import { OPERATION_TYPES } from "@/constant/operation-constants";
 import { createComponentLogger } from "@/lib/logger";
-import {
-  ChainSelector,
-  UserWelcomeHeader,
-  TransactionStatus,
-  DebugInfo,
-} from "./ui";
+import { UserWelcomeHeader, DebugInfo } from "./ui";
 
-const logger = createComponentLogger("BatchDeposit");
+const logger = createComponentLogger("VaultOperations");
 
-export function BatchDeposit() {
+export function VaultOperations() {
   const { address } = useAccount();
   const chainId = useChainId();
 
-  // Batch deposit state
+  // Operation state
   const [activeTab, setActiveTab] = useState<OperationType>(
     OPERATION_TYPES.DEPOSIT
   );
-  const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [portfolioTab, setPortfolioTab] = useState<"summary" | "breakdown">(
+    "summary"
+  );
 
   const [selectedChainId, setSelectedChainId] = useState<SupportedChainId>(
     isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
@@ -59,72 +52,45 @@ export function BatchDeposit() {
 
   const [isClient, setIsClient] = useState(false);
 
-  const { switchChain, isPending: isSwitching } = useSwitchChain();
-
-  // Batch deposit validation
+  // Unified deposit validation (replaces both single and batch validation)
   const {
     batchState,
-    updateAmount: updateBatchAmount,
-    setMaxAmount: setBatchMaxAmount,
-    clearAll: clearBatchAmounts,
+    updateAmount: updateDepositAmount,
+    setMaxAmount: setDepositMaxAmount,
+    clearAll: clearDepositAmounts,
     getValidChainAmounts,
   } = useBatchDepositValidation();
 
-  // Clean batch deposit service
+  // Unified deposit service (handles both single and multi-chain)
   const {
     executeBatch,
     retryChain,
-    cancel: cancelBatch,
+    cancel: cancelDeposit,
     isExecuting,
-    results: batchResults,
-    error: batchError,
-    progress: batchProgress,
+    results: depositResults,
+    error: depositError,
+    progress: depositProgress,
   } = useBatchDeposit();
 
   // UI state
-  const [showBatchProgress, setShowBatchProgress] = useState(false);
-  const [batchCompletedSuccessfully, setBatchCompletedSuccessfully] =
+  const [showDepositProgress, setShowDepositProgress] = useState(false);
+  const [depositCompletedSuccessfully, setDepositCompletedSuccessfully] =
     useState(false);
 
   // Auto-show progress when execution starts
   useEffect(() => {
     if (isExecuting) {
-      setShowBatchProgress(true);
-      setBatchCompletedSuccessfully(false);
+      setShowDepositProgress(true);
+      setDepositCompletedSuccessfully(false);
     }
   }, [isExecuting]);
 
   // Handle completion
   useEffect(() => {
-    if (!isExecuting && batchResults.length > 0) {
-      setBatchCompletedSuccessfully(!batchError);
+    if (!isExecuting && depositResults.length > 0) {
+      setDepositCompletedSuccessfully(!depositError);
     }
-  }, [isExecuting, batchResults.length, batchError]);
-
-  const {
-    isOperationActive,
-    operationError: depositOperationError,
-    isApproving,
-    approveTxHash,
-    isApprovalConfirmed,
-    isDepositing,
-    depositTxHash,
-    isDepositConfirmed,
-    currentAllowance,
-    progress,
-    executeDeposit,
-    resetDeposit: resetDepositOperation,
-    clearError: clearDepositError,
-  } = useVaultDeposit({
-    chainId: selectedChainId,
-    onDepositComplete: (amount) => {
-      logger.debug(`Deposit of ${amount} USDC completed successfully`);
-      setDepositAmount("");
-    },
-    onError: (error) => {
-      logger.error("Deposit operation failed:", error);
-    },
-  });
+  }, [isExecuting, depositResults.length, depositError]);
 
   // Keep selectedChainId in sync especially when switching from the nav
   useEffect(() => {
@@ -151,8 +117,8 @@ export function BatchDeposit() {
     },
   } = useChainBalances({ chainId: selectedChainId });
 
-  const { depositValidation, withdrawValidation } = useOperationValidation({
-    depositAmount,
+  const { withdrawValidation } = useOperationValidation({
+    depositAmount: "",
     withdrawAmount,
     walletBalance: walletError ? undefined : usdcBalance,
     vaultBalance: vaultError ? undefined : vaultBalance,
@@ -160,43 +126,10 @@ export function BatchDeposit() {
     token: "USDC",
   });
 
-  const handleChainSwitch = (newChainId: SupportedChainId) => {
-    if (isSwitching) return;
-
-    setSelectedChainId(newChainId);
-    switchChain(
-      { chainId: newChainId },
-      {
-        onError: (error) => {
-          logger.error("Failed to switch chain:", error);
-          setSelectedChainId(
-            isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
-          );
-        },
-      }
-    );
-  };
-
-  const handleMaxDeposit = () => {
-    if (usdcBalance) {
-      setDepositAmount(formatBalance(usdcBalance));
-      resetDepositOperation();
-    }
-  };
-
-  const handleDepositAmountChange = (amount: string) => {
-    setDepositAmount(amount);
-    clearDepositError();
-  };
-
   const handleMaxWithdraw = () => {
     if (vaultBalance) {
       setWithdrawAmount(formatBalance(vaultBalance));
     }
-  };
-
-  const handleDeposit = () => {
-    executeDeposit(depositAmount);
   };
 
   const handleRetryChain = async (chainId: number) => {
@@ -208,18 +141,18 @@ export function BatchDeposit() {
       const result = await retryChain(chainId as SupportedChainId, amount);
       logger.debug(`Retry completed for chain ${chainId}:`, result);
       // The result will be automatically updated via the event listeners
+      // TODO:: maybe add TOASTTT
     } catch (error) {
       logger.error(`Retry failed for chain ${chainId}:`, error);
     }
   };
 
-  const handleBatchDeposit = async () => {
+  const handleUnifiedDeposit = async () => {
     const validAmounts = getValidChainAmounts();
     if (validAmounts.length === 0) return;
 
-    logger.debug("Starting batch deposit for", validAmounts.length, "chains");
+    logger.debug("Starting deposit for", validAmounts.length, "chains");
 
-    // Convert to ChainAmount format expected by service with proper amount parsing
     const chainAmounts: {
       chainId: SupportedChainId;
       amount: string;
@@ -261,9 +194,9 @@ export function BatchDeposit() {
 
     try {
       await executeBatch(chainAmounts);
-      logger.debug("Batch deposit initiated successfully");
+      logger.debug("Deposit initiated successfully");
     } catch (error) {
-      logger.error("Failed to start batch deposit:", error);
+      logger.error("Failed to start deposit:", error);
     }
   };
 
@@ -287,86 +220,22 @@ export function BatchDeposit() {
 
   return (
     <div className="w-full">
-      <ChainSelector
-        chains={SUPPORTED_CHAINS}
-        selectedChainId={selectedChainId}
-        onChainChange={handleChainSwitch}
-        isSwitching={isSwitching}
-      />
-
       <div className="grid gap-10 bg-teal-500/20 px-4 py-10">
         <UserWelcomeHeader address={address} chainId={selectedChainId} />
 
-        {address && (
-          <BalanceDisplay
-            balances={[
-              {
-                label: "Available USDC Balance",
-                value: usdcBalance,
-                logo: getTokenLogo("USDC"),
-                error: walletError?.message,
-                decimals: USDC_DECIMALS,
-              },
-              {
-                label: "USDC in Vault",
-                value: vaultBalance,
-                logo: getTokenLogo("USDC"),
-                error: vaultError?.message,
-                decimals: USDC_DECIMALS,
-              },
-            ]}
-            isLoading={isSwitching || walletLoading || vaultLoading}
-          />
-        )}
-
+        {/* Portfolio Tabs */}
+        <PortfolioTabs activeTab={portfolioTab} onTabChange={setPortfolioTab} />
         <OperationTabs activeTab={activeTab} onTabChange={setActiveTab}>
           {activeTab === OPERATION_TYPES.DEPOSIT ? (
             <div className="space-y-4">
-              <OperationInput
-                type={OPERATION_TYPES.DEPOSIT}
-                amount={depositAmount}
-                onAmountChange={handleDepositAmountChange}
-                onMaxClick={handleMaxDeposit}
-                onSubmit={handleDeposit}
-                disabled={isSwitching || isOperationActive}
-                token="USDC"
-                decimals={USDC_DECIMALS}
-                validation={depositValidation}
-              />
-
-              <TransactionStatus
-                isActive={isOperationActive}
-                error={depositOperationError}
-                progress={
-                  isOperationActive && !depositOperationError && progress
-                    ? {
-                        stepNumber: progress.stepNumber,
-                        totalSteps: progress.totalSteps,
-                        percentage: progress.percentage,
-                        currentStepLabel: getCurrentStepLabel({
-                          isApproving,
-                          approveTxHash,
-                          isApprovalConfirmed,
-                          isDepositing,
-                          depositTxHash,
-                          isDepositConfirmed,
-                          selectedChainId,
-                          depositAmount,
-                        }),
-                        description: getCurrentStepDescription({
-                          isApproving,
-                          approveTxHash,
-                          isApprovalConfirmed,
-                          isDepositing,
-                          depositTxHash,
-                          isDepositConfirmed,
-                          selectedChainId,
-                          depositAmount,
-                        }),
-                      }
-                    : undefined
-                }
-                onDismissError={clearDepositError}
+              <DepositInput
+                batchState={batchState}
+                onAmountChange={updateDepositAmount}
+                onMaxClick={setDepositMaxAmount}
+                onExecuteDeposit={handleUnifiedDeposit}
+                disabled={false}
+                isProcessing={isExecuting}
+                selectedChainId={selectedChainId}
               />
 
               {isClient && (
@@ -375,22 +244,10 @@ export function BatchDeposit() {
                     "Your wallet": address,
                     "USDC contract": getUsdcAddress(selectedChainId),
                     "Vault contract": getVaultAddress(selectedChainId),
-                    "Current allowance": currentAllowance?.toString(),
                     Chain: getChainName(selectedChainId),
                   }}
                 />
               )}
-            </div>
-          ) : activeTab === OPERATION_TYPES.BATCH_DEPOSIT ? (
-            <div className="space-y-4">
-              <BatchDepositInput
-                batchState={batchState}
-                onAmountChange={updateBatchAmount}
-                onMaxClick={setBatchMaxAmount}
-                onExecuteBatch={handleBatchDeposit}
-                disabled={isSwitching}
-                isProcessing={isExecuting}
-              />
             </div>
           ) : (
             <OperationInput
@@ -399,24 +256,22 @@ export function BatchDeposit() {
               onAmountChange={setWithdrawAmount}
               onMaxClick={handleMaxWithdraw}
               onSubmit={handleWithdraw}
-              disabled={isSwitching}
+              disabled={false}
               token="USDC"
               decimals={USDC_DECIMALS}
               validation={withdrawValidation}
             />
           )}
         </OperationTabs>
-
-        {/* Batch Operation Progress Modal */}
-        {showBatchProgress && (
+        {showDepositProgress && (
           <BatchOperationProgress
             progress={{
-              percentage: batchProgress.percentage,
-              totalSteps: batchProgress.total,
-              currentStep: batchProgress.completed + 1,
-              currentChain: batchProgress.currentChain,
-              currentOperation: batchProgress.currentOperation,
-              chainStatuses: batchResults.map((result) => ({
+              percentage: depositProgress.percentage,
+              totalSteps: depositProgress.total,
+              currentStep: depositProgress.completed + 1,
+              currentChain: depositProgress.currentChain,
+              currentOperation: depositProgress.currentOperation,
+              chainStatuses: depositResults.map((result) => ({
                 chainId: result.chainId,
                 status:
                   result.status === "success"
@@ -431,7 +286,7 @@ export function BatchDeposit() {
                 // Disable retry UI while batch still running or another retry active
                 canRetry:
                   !isExecuting &&
-                  !batchProgress.isRetrying &&
+                  !depositProgress.isRetrying &&
                   (result.status === "cancelled" ||
                     result.status === "partial" || // allow retry of deposit
                     (result.status === "failed" && !result.userCancelled)),
@@ -441,24 +296,24 @@ export function BatchDeposit() {
               })),
               // If a retry is underway, force not-complete so step bar shows
               isComplete:
-                !batchProgress.isRetrying &&
+                !depositProgress.isRetrying &&
                 !isExecuting &&
-                batchResults.length > 0,
-              hasFailures: batchResults.some((r) => r.status !== "success"),
-              batchCompletedSuccessfully,
-              isRetrying: batchProgress.isRetrying,
-              retryingChainId: batchProgress.retryingChainId ?? null,
+                depositResults.length > 0,
+              hasFailures: depositResults.some((r) => r.status !== "success"),
+              batchCompletedSuccessfully: depositCompletedSuccessfully,
+              isRetrying: depositProgress.isRetrying,
+              retryingChainId: depositProgress.retryingChainId ?? null,
             }}
             onRetryChain={handleRetryChain}
             onDismiss={() => {
-              setShowBatchProgress(false);
-              setBatchCompletedSuccessfully(false);
-              clearBatchAmounts();
+              setShowDepositProgress(false);
+              setDepositCompletedSuccessfully(false);
+              clearDepositAmounts();
             }}
             onCancelBatch={() => {
-              cancelBatch();
-              setShowBatchProgress(false);
-              setBatchCompletedSuccessfully(false);
+              cancelDeposit();
+              setShowDepositProgress(false);
+              setDepositCompletedSuccessfully(false);
             }}
           />
         )}

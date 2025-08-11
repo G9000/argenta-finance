@@ -4,7 +4,6 @@
 export const OPERATION_TYPES = {
   DEPOSIT: "deposit",
   WITHDRAW: "withdraw",
-  BATCH_DEPOSIT: "batch_deposit",
 } as const;
 
 /**
