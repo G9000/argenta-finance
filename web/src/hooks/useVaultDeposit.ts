@@ -11,7 +11,7 @@ import {
   getUsdcAddress,
   getVaultAddress,
   getChainName,
-} from "@/lib/contracts";
+} from "@/constant/contracts";
 import { createComponentLogger } from "@/lib/logger";
 import { useTokenApproval } from "./useTokenApproval";
 import { useVaultDepositTransaction } from "./useVaultDepositTransaction";

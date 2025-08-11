@@ -1,11 +1,15 @@
 import { useInputValidation } from "./useInputValidation";
+import { SupportedTokenSymbol } from "@/types/ui-state";
 import {
   OPERATION_TYPES,
-  SupportedTokenSymbol,
   VALIDATION_CONFIG,
-} from "@/types/operations";
-import { SupportedChainId, USDC_DECIMALS, ETH_DECIMALS } from "@/lib/contracts";
-import { ValidationResult } from "@/lib/validators";
+} from "@/constant/operation-constants";
+import {
+  SupportedChainId,
+  USDC_DECIMALS,
+  ETH_DECIMALS,
+} from "@/constant/contracts";
+import { ValidationResult } from "@/lib/validation";
 
 interface UseOperationValidationParams {
   depositAmount: string;

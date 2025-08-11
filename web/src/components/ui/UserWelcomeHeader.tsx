@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { getChainName, SupportedChainId } from "@/lib/contracts";
+import { getChainName, SupportedChainId } from "@/constant/contracts";
 import { getChainLogo } from "@/lib/tokens";
 
 interface UserWelcomeHeaderProps {

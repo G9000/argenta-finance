@@ -1,7 +1,7 @@
 import { useReadContract } from "wagmi";
 import { erc20Abi } from "viem";
 import type { Address } from "viem";
-import type { SupportedChainId } from "@/lib/contracts";
+import type { SupportedChainId } from "@/constant/contracts";
 
 interface UseTokenBalanceParams {
   chainId: SupportedChainId;

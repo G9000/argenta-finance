@@ -1,12 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import {
-  OperationType,
-  OPERATION_TYPES,
-  SupportedTokenSymbol,
-  ValidationResult,
-} from "@/types/operations";
+import { OperationType, SupportedTokenSymbol } from "@/types/ui-state";
+import { OPERATION_TYPES } from "@/constant/operation-constants";
+import { ValidationResult } from "@/lib/validation";
 
 interface OperationInputProps {
   type: OperationType;

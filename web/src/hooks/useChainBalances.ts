@@ -5,7 +5,7 @@ import {
   type SupportedChainId,
   getUsdcAddress,
   getVaultAddress,
-} from "@/lib/contracts";
+} from "@/constant/contracts";
 
 interface UseChainBalancesParams {
   chainId: SupportedChainId;

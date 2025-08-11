@@ -1,11 +1,10 @@
 import { parseUnits, formatUnits } from "viem";
+import { OperationType, SupportedTokenSymbol } from "@/types/ui-state";
 import {
-  OperationType,
   OPERATION_TYPES,
-  SupportedTokenSymbol,
   VALIDATION_CONFIG,
   VALIDATION_MESSAGES,
-} from "@/types/operations";
+} from "@/constant/operation-constants";
 import {
   CommonValidations,
   collectValidationResults,

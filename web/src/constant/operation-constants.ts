@@ -1,11 +1,15 @@
+/**
+ * Operation type constants
+ */
 export const OPERATION_TYPES = {
   DEPOSIT: "deposit",
   WITHDRAW: "withdraw",
+  BATCH_DEPOSIT: "batch_deposit",
 } as const;
 
-export type OperationType =
-  (typeof OPERATION_TYPES)[keyof typeof OPERATION_TYPES];
-
+/**
+ * Supported token configurations
+ */
 export const SUPPORTED_TOKENS = {
   USDC: {
     symbol: "USDC",
@@ -17,9 +21,9 @@ export const SUPPORTED_TOKENS = {
   },
 } as const;
 
-export type SupportedTokenSymbol =
-  (typeof SUPPORTED_TOKENS)[keyof typeof SUPPORTED_TOKENS]["symbol"];
-
+/**
+ * Validation configuration constants
+ */
 export const VALIDATION_CONFIG = {
   MIN_AMOUNTS: {
     USDC: "0.000001",
@@ -33,6 +37,9 @@ export const VALIDATION_CONFIG = {
   LARGE_AMOUNT_WARNING: 10000,
 } as const;
 
+/**
+ * Button state constants
+ */
 export const BUTTON_STATES = {
   IDLE: "idle",
   PROCESSING: "processing",
@@ -40,8 +47,9 @@ export const BUTTON_STATES = {
   ERROR: "error",
 } as const;
 
-export type ButtonState = (typeof BUTTON_STATES)[keyof typeof BUTTON_STATES];
-
+/**
+ * Validation error and warning messages
+ */
 export const VALIDATION_MESSAGES = {
   ERRORS: {
     WALLET_NOT_CONNECTED: "Please connect your wallet",
