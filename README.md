@@ -28,7 +28,7 @@ This project was built with a focus on **modularity**, **multi-chain support**, 
 
 - Node.js 20+
 - pnpm (recommended) or npm
-- Wallet with testnet USDC (Sepolia and Sei). Currently I only tested on MetaMask
+- Wallet with testnet USDC (Sepolia and Sei). Currently, I have only tested on MetaMask due to constraint
 
 ---
 
