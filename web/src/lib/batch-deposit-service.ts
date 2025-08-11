@@ -7,7 +7,11 @@ import {
 } from "@/constant/contracts";
 import { appChains } from "@/lib/chains";
 import { simpleVaultAbi } from "@/generated/wagmi";
-import { parseAmountToBigInt, isUserRejection } from "@/lib/vault-operations";
+import {
+  parseAmountToBigInt,
+  isUserRejection,
+  validateChainOperation,
+} from "@/lib/vault-operations";
 import { createTypedEventEmitter } from "@/types/typed-event-emitter";
 import type {
   ChainAmount,
@@ -125,6 +129,27 @@ export function createBatchDepositService(
   wagmi: WagmiDependencies,
   config: BatchDepositConfig = DEFAULT_CONFIG
 ): BatchDepositService {
+  if (!/^0x[a-fA-F0-9]{40}$/.test(wagmi.userAddress)) {
+    throw new Error("Invalid user address provided to batch deposit service");
+  }
+
+  if (!wagmi || typeof wagmi !== "object") {
+    throw new Error("wagmi dependencies object is required");
+  }
+  if (typeof wagmi.switchChain !== "function") {
+    throw new Error("Missing required dependency: switchChain function");
+  }
+  if (!wagmi.walletClient || typeof wagmi.walletClient !== "object") {
+    throw new Error("Missing required dependency: walletClient");
+  }
+  if (typeof (wagmi.walletClient as any).writeContract !== "function") {
+    throw new Error(
+      "Missing required dependency: walletClient.writeContract function"
+    );
+  }
+  if (wagmi.publicClient && typeof wagmi.publicClient !== "object") {
+    throw new Error("publicClient, if provided, must be an object");
+  }
   let isRunning = false;
   let isCancelled = false;
   let results: BatchDepositResult[] = [];
@@ -406,8 +431,8 @@ export function createBatchDepositService(
     if (isCancelled) throw new Error("Operation cancelled");
 
     // Step 2: Get contract addresses
-    const usdcAddress = getUsdcAddress(chainId);
-    const vaultAddress = getVaultAddress(chainId);
+    // Validate and fetch chain-specific contract addresses (ensures correct format)
+    const { usdcAddress, vaultAddress } = validateChainOperation(chainId);
 
     // Step 3: Check and handle approval (if needed)
     const needsApproval = await checkNeedsApproval(

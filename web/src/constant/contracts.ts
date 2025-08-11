@@ -1,4 +1,5 @@
 import type { Address } from "viem";
+import { seiTestnet, sepolia } from "viem/chains";
 
 export enum SupportedChainId {
   ETH_SEPOLIA = 11155111,
@@ -17,8 +18,8 @@ export function isSupportedChainId(
 }
 
 export const CHAIN_TO_CHAIN_NAME = {
-  [SupportedChainId.ETH_SEPOLIA]: "Ethereum Sepolia",
-  [SupportedChainId.SEI_TESTNET]: "Sei Testnet",
+  [SupportedChainId.ETH_SEPOLIA]: sepolia.name,
+  [SupportedChainId.SEI_TESTNET]: seiTestnet.name,
 } as const satisfies Record<SupportedChainId, string>;
 
 export const USDC_ADDRESSES = {
@@ -37,8 +38,10 @@ export const VAULT_DEPLOYMENT_BLOCKS = {
 } as const satisfies Record<SupportedChainId, number>;
 
 export const BLOCK_EXPLORERS = {
-  [SupportedChainId.ETH_SEPOLIA]: "https://sepolia.etherscan.io",
-  [SupportedChainId.SEI_TESTNET]: "https://seitrace.com/?chain=testnet",
+  [SupportedChainId.ETH_SEPOLIA]:
+    sepolia.blockExplorers?.default?.url || "https://sepolia.etherscan.io",
+  [SupportedChainId.SEI_TESTNET]:
+    seiTestnet.blockExplorers?.default?.url || "https://seitrace.com",
 } as const satisfies Record<SupportedChainId, string>;
 
 export const USDC_DECIMALS = 6 as const;
