@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { useEnsName, useEnsAvatar } from "wagmi";
+import { useEnsName, useEnsAvatar, useChainId } from "wagmi";
 import { cn } from "@/lib/utils";
 import { isAddress } from "viem";
-import { mainnet } from "wagmi/chains";
+import { normalize } from "viem/ens";
+import { SupportedChainId } from "@/constant/contracts";
 
 interface EnsAvatarProps {
   address: string;
@@ -21,16 +22,40 @@ export function EnsAvatar({
   showFallback = true,
 }: EnsAvatarProps) {
   const [imageError, setImageError] = useState(false);
-  const { data: ensName } = useEnsName({
+  const currentChainId = useChainId();
+
+  const getEnsChainId = () => {
+    if (currentChainId === SupportedChainId.ETH_SEPOLIA) {
+      return SupportedChainId.ETH_SEPOLIA;
+    }
+
+    return 1;
+  };
+
+  const ensChainId = getEnsChainId();
+
+  const { data: ensName, isLoading: ensNameLoading } = useEnsName({
     address:
       address && isAddress(address) ? (address as `0x${string}`) : undefined,
-    chainId: mainnet.id,
+    chainId: ensChainId,
   });
-  const { data: ensAvatar, isLoading } = useEnsAvatar({
-    name: ensName || undefined,
-    chainId: mainnet.id,
+
+  const normalizedEnsName = ensName
+    ? (() => {
+        try {
+          return normalize(ensName);
+        } catch (error) {
+          console.warn("Failed to normalize ENS name:", ensName, error);
+          return ensName;
+        }
+      })()
+    : undefined;
+
+  const { data: ensAvatar, isLoading: avatarLoading } = useEnsAvatar({
+    name: normalizedEnsName || undefined,
+    chainId: ensChainId,
     query: {
-      enabled: !!ensName,
+      enabled: !!normalizedEnsName,
     },
   });
 
@@ -39,7 +64,7 @@ export function EnsAvatar({
       <div className={cn("relative flex-shrink-0", className)}>
         <Image
           src={ensAvatar}
-          alt={`${ensName || address} avatar`}
+          alt={`${normalizedEnsName || ensName || address} avatar`}
           width={size}
           height={size}
           className="rounded-full border border-white/20 object-cover"
@@ -55,7 +80,7 @@ export function EnsAvatar({
     );
   }
 
-  if (isLoading && !imageError) {
+  if ((ensNameLoading || avatarLoading) && !imageError) {
     return (
       <div
         className={cn(
@@ -67,7 +92,8 @@ export function EnsAvatar({
     );
   }
 
-  if (showFallback && ensName) {
+  if (showFallback && (normalizedEnsName || ensName)) {
+    const displayName = normalizedEnsName || ensName;
     return (
       <div
         className={cn(
@@ -80,7 +106,26 @@ export function EnsAvatar({
           className="font-mono text-teal-200 font-medium"
           style={{ fontSize: Math.max(10, size * 0.4) }}
         >
-          {ensName.charAt(0).toUpperCase()}
+          {displayName?.charAt(0).toUpperCase() || "?"}
+        </span>
+      </div>
+    );
+  }
+
+  if (showFallback && address && isAddress(address)) {
+    return (
+      <div
+        className={cn(
+          "flex-shrink-0 rounded-full border border-white/20 bg-gradient-to-br from-gray-500/30 to-gray-600/30 flex items-center justify-center",
+          className
+        )}
+        style={{ width: size, height: size }}
+      >
+        <span
+          className="font-mono text-gray-200 font-medium"
+          style={{ fontSize: Math.max(10, size * 0.4) }}
+        >
+          {address.slice(2, 4).toUpperCase()}
         </span>
       </div>
     );
