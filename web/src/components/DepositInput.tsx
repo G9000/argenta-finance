@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useAccount } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
@@ -17,24 +17,32 @@ import { getTokenLogo } from "@/lib/tokens";
 import { useChainBalances } from "@/hooks";
 import type { BatchDepositState } from "@/types/ui-state";
 
-interface UnifiedDepositInputProps {
+interface DepositInputProps {
   batchState: BatchDepositState;
   onAmountChange: (chainId: SupportedChainId, amount: string) => void;
   onMaxClick: (chainId: SupportedChainId) => void;
   onExecuteDeposit: () => void;
   disabled?: boolean;
   isProcessing?: boolean;
+  selectedChainId: SupportedChainId;
 }
 
-export function UnifiedDepositInput({
+export function DepositInput({
   batchState,
   onAmountChange,
   onMaxClick,
   onExecuteDeposit,
   disabled = false,
   isProcessing = false,
-}: UnifiedDepositInputProps) {
+  selectedChainId,
+}: DepositInputProps) {
   const { address } = useAccount();
+  const [isMultiChainMode, setIsMultiChainMode] = useState(false);
+  const [activeChains, setActiveChains] = useState<Set<SupportedChainId>>(
+    new Set([selectedChainId])
+  );
+  const [showChainDropdown, setShowChainDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Get balances for all chains (call hooks at top level)
   const ethSepoliaBalance = useChainBalances({
@@ -53,7 +61,34 @@ export function UnifiedDepositInput({
   const stepValue =
     USDC_DECIMALS > 0 ? `0.${"0".repeat(USDC_DECIMALS - 1)}1` : "1";
 
-  const hasAnyAmount = Object.values(batchState.inputs).some((amount) => {
+  // Update active chains when switching modes
+  useEffect(() => {
+    if (!isMultiChainMode) {
+      setActiveChains(new Set([selectedChainId]));
+    }
+  }, [isMultiChainMode, selectedChainId]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowChainDropdown(false);
+      }
+    };
+
+    if (showChainDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [showChainDropdown]);
+
+  const hasAnyAmount = Array.from(activeChains).some((chainId) => {
+    const amount = batchState.inputs[chainId] || "";
     const numericAmount = Number(amount);
     return amount && Number.isFinite(numericAmount) && numericAmount > 0;
   });
@@ -63,7 +98,8 @@ export function UnifiedDepositInput({
 
   const getTotalAmount = () => {
     try {
-      const total = Object.values(batchState.inputs)
+      const total = Array.from(activeChains)
+        .map((chainId) => batchState.inputs[chainId] || "")
         .filter((amount) => amount && Number(amount) > 0)
         .reduce((sum, amount) => {
           const amountInWei = parseUnits(amount, USDC_DECIMALS);
@@ -77,7 +113,8 @@ export function UnifiedDepositInput({
   };
 
   const getActiveChainCount = () => {
-    return Object.values(batchState.inputs).filter((amount) => {
+    return Array.from(activeChains).filter((chainId) => {
+      const amount = batchState.inputs[chainId] || "";
       const numericAmount = Number(amount);
       return amount && Number.isFinite(numericAmount) && numericAmount > 0;
     }).length;
@@ -86,11 +123,11 @@ export function UnifiedDepositInput({
   const getButtonText = () => {
     const activeChains = getActiveChainCount();
     if (isProcessing) {
-      return activeChains > 1 
-        ? "Processing Multi-Chain Deposit..." 
+      return activeChains > 1
+        ? "Processing Multi-Chain Deposit..."
         : "Processing Deposit...";
     }
-    
+
     if (activeChains === 0) {
       return "Enter Amount to Deposit";
     } else if (activeChains === 1) {
@@ -100,27 +137,146 @@ export function UnifiedDepositInput({
     }
   };
 
+  const getAvailableChains = () => {
+    return SUPPORTED_CHAINS.filter((chainId) => !activeChains.has(chainId));
+  };
+
+  const handleAddChain = (chainId: SupportedChainId) => {
+    setActiveChains((prev) => new Set([...prev, chainId]));
+    setShowChainDropdown(false);
+  };
+
+  const handleRemoveChain = (chainId: SupportedChainId) => {
+    if (activeChains.size > 1) {
+      setActiveChains((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(chainId);
+        return newSet;
+      });
+      // Clear the amount for the removed chain
+      onAmountChange(chainId, "");
+    }
+  };
+
+  const handleToggleMode = () => {
+    const newMode = !isMultiChainMode;
+    setIsMultiChainMode(newMode);
+
+    if (!newMode) {
+      // Single mode: keep only the selected chain
+      setActiveChains(new Set([selectedChainId]));
+      // Clear amounts for other chains
+      SUPPORTED_CHAINS.forEach((chainId) => {
+        if (chainId !== selectedChainId) {
+          onAmountChange(chainId, "");
+        }
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="space-y-1">
-        <div className="text-xs text-gray-400 uppercase tracking-wide">
-          Deposit USDC
+      {/* Header with Toggle */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <div className="text-xs text-gray-400 uppercase tracking-wide">
+              Deposit USDC
+            </div>
+            <div className="text-sm text-gray-300">
+              {isMultiChainMode
+                ? "Enter amounts for multiple chains. All deposits will be executed in sequence."
+                : `Deposit to ${getChainName(selectedChainId)} only.`}
+            </div>
+          </div>
+
+          {/* Mode Toggle */}
+          <div className="flex items-center gap-3 p-3 border border-white/10 rounded-lg bg-gray-800/50">
+            <span
+              className={cn(
+                "text-xs font-medium transition-colors",
+                !isMultiChainMode ? "text-teal-400" : "text-gray-400"
+              )}
+            >
+              Single Chain
+            </span>
+            <button
+              onClick={handleToggleMode}
+              disabled={disabled || isProcessing}
+              className={cn(
+                "relative w-12 h-6 rounded-full transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-teal-500/50",
+                isMultiChainMode ? "bg-teal-500" : "bg-gray-600"
+              )}
+            >
+              <div
+                className={cn(
+                  "absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm",
+                  isMultiChainMode ? "translate-x-6" : "translate-x-0.5"
+                )}
+              />
+            </button>
+            <span
+              className={cn(
+                "text-xs font-medium transition-colors",
+                isMultiChainMode ? "text-teal-400" : "text-gray-400"
+              )}
+            >
+              Multi Chain
+            </span>
+          </div>
         </div>
-        <div className="text-sm text-gray-300">
-          Enter amounts for one or multiple chains. All deposits will be executed in sequence.
-        </div>
+
+        {/* Add Chain Button (Multi-chain mode only) */}
+        {isMultiChainMode && getAvailableChains().length > 0 && (
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowChainDropdown(!showChainDropdown)}
+              disabled={disabled || isProcessing}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 text-xs border border-teal-500/30 rounded-lg",
+                "hover:border-teal-500/50 transition-colors disabled:opacity-50",
+                "text-teal-400 bg-teal-500/5"
+              )}
+            >
+              <span>+ Add Chain</span>
+              <div
+                className={cn(
+                  "transition-transform",
+                  showChainDropdown ? "rotate-180" : ""
+                )}
+              >
+                ▼
+              </div>
+            </button>
+
+            {/* Chain Dropdown */}
+            {showChainDropdown && (
+              <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-white/10 rounded-lg shadow-lg z-10">
+                {getAvailableChains().map((chainId) => (
+                  <button
+                    key={chainId}
+                    onClick={() => handleAddChain(chainId)}
+                    className="w-full px-4 py-2 text-left text-sm text-white hover:bg-teal-500/10 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                  >
+                    {getChainName(chainId)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Chain Input Grid */}
       <div className="space-y-4">
-        {SUPPORTED_CHAINS.map((chainId) => {
+        {Array.from(activeChains).map((chainId) => {
           const chainBalance = chainBalances[chainId];
           const amount = batchState.inputs[chainId] || "";
           const chainErrors = batchState.errors[chainId] || [];
           const chainWarnings = batchState.warnings[chainId] || [];
           const hasErrors = chainErrors.length > 0;
           const hasWarnings = chainWarnings.length > 0;
+          const canRemove = isMultiChainMode && activeChains.size > 1;
 
           return (
             <div
@@ -129,7 +285,10 @@ export function UnifiedDepositInput({
                 "border border-white/10 rounded-lg p-4 space-y-3 transition-colors",
                 amount &&
                   Number(amount) > 0 &&
-                  "border-teal-500/30 bg-teal-500/5"
+                  "border-teal-500/30 bg-teal-500/5",
+                !isMultiChainMode &&
+                  chainId === selectedChainId &&
+                  "ring-1 ring-teal-500/30"
               )}
             >
               {/* Chain Header */}
@@ -141,6 +300,15 @@ export function UnifiedDepositInput({
                   <span className="font-mono text-sm text-white">
                     {getChainName(chainId)}
                   </span>
+                  {canRemove && (
+                    <button
+                      onClick={() => handleRemoveChain(chainId)}
+                      disabled={disabled || isProcessing}
+                      className="ml-2 text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
                 <button
                   onClick={() => onMaxClick(chainId)}
@@ -281,9 +449,7 @@ export function UnifiedDepositInput({
             <div className="size-4 border border-current border-t-transparent rounded-full animate-spin" />
           </div>
         )}
-        <span className={cn(isProcessing && "ml-6")}>
-          {getButtonText()}
-        </span>
+        <span className={cn(isProcessing && "ml-6")}>{getButtonText()}</span>
       </button>
 
       {!address && (

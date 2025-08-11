@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAccount, useChainId, useSwitchChain } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import {
   getChainName,
   isSupportedChainId,
   SupportedChainId,
-  SUPPORTED_CHAINS,
   USDC_DECIMALS,
   getUsdcAddress,
   getVaultAddress,
@@ -22,13 +21,13 @@ import { useBatchDeposit } from "@/hooks/useBatchDeposit";
 import { BalanceDisplay } from "./BalanceDisplay";
 import { OperationInput } from "./OperationInput";
 import { OperationTabs } from "./OperationTabs";
-import { UnifiedDepositInput } from "./UnifiedDepositInput";
+import { DepositInput } from "./DepositInput";
 import { BatchOperationProgress } from "./BatchOperationProgress";
 import { getTokenLogo } from "@/lib/tokens";
 import { OperationType } from "@/types/ui-state";
 import { OPERATION_TYPES } from "@/constant/operation-constants";
 import { createComponentLogger } from "@/lib/logger";
-import { ChainSelector, UserWelcomeHeader, DebugInfo } from "./ui";
+import { UserWelcomeHeader, DebugInfo } from "./ui";
 
 const logger = createComponentLogger("VaultOperations");
 
@@ -47,8 +46,6 @@ export function VaultOperations() {
   );
 
   const [isClient, setIsClient] = useState(false);
-
-  const { switchChain, isPending: isSwitching } = useSwitchChain();
 
   // Unified deposit validation (replaces both single and batch validation)
   const {
@@ -116,30 +113,13 @@ export function VaultOperations() {
   } = useChainBalances({ chainId: selectedChainId });
 
   const { withdrawValidation } = useOperationValidation({
-    depositAmount: "", // Not used for unified approach
+    depositAmount: "",
     withdrawAmount,
     walletBalance: walletError ? undefined : usdcBalance,
     vaultBalance: vaultError ? undefined : vaultBalance,
     chainId: selectedChainId,
     token: "USDC",
   });
-
-  const handleChainSwitch = (newChainId: SupportedChainId) => {
-    if (isSwitching) return;
-
-    setSelectedChainId(newChainId);
-    switchChain(
-      { chainId: newChainId },
-      {
-        onError: (error) => {
-          logger.error("Failed to switch chain:", error);
-          setSelectedChainId(
-            isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
-          );
-        },
-      }
-    );
-  };
 
   const handleMaxWithdraw = () => {
     if (vaultBalance) {
@@ -235,13 +215,6 @@ export function VaultOperations() {
 
   return (
     <div className="w-full">
-      <ChainSelector
-        chains={SUPPORTED_CHAINS}
-        selectedChainId={selectedChainId}
-        onChainChange={handleChainSwitch}
-        isSwitching={isSwitching}
-      />
-
       <div className="grid gap-10 bg-teal-500/20 px-4 py-10">
         <UserWelcomeHeader address={address} chainId={selectedChainId} />
 
@@ -263,20 +236,21 @@ export function VaultOperations() {
                 decimals: USDC_DECIMALS,
               },
             ]}
-            isLoading={isSwitching || walletLoading || vaultLoading}
+            isLoading={walletLoading || vaultLoading}
           />
         )}
 
         <OperationTabs activeTab={activeTab} onTabChange={setActiveTab}>
           {activeTab === OPERATION_TYPES.DEPOSIT ? (
             <div className="space-y-4">
-              <UnifiedDepositInput
+              <DepositInput
                 batchState={batchState}
                 onAmountChange={updateDepositAmount}
                 onMaxClick={setDepositMaxAmount}
                 onExecuteDeposit={handleUnifiedDeposit}
-                disabled={isSwitching}
+                disabled={false}
                 isProcessing={isExecuting}
+                selectedChainId={selectedChainId}
               />
 
               {isClient && (
@@ -297,7 +271,7 @@ export function VaultOperations() {
               onAmountChange={setWithdrawAmount}
               onMaxClick={handleMaxWithdraw}
               onSubmit={handleWithdraw}
-              disabled={isSwitching}
+              disabled={false}
               token="USDC"
               decimals={USDC_DECIMALS}
               validation={withdrawValidation}
