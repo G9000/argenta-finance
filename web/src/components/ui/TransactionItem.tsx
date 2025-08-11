@@ -71,7 +71,7 @@ export function TransactionItem({
   return (
     <div
       key={id}
-      className="flex items-center justify-between p-3 border border-white/10 hover:bg-white/5 transition-colors bg-white/[0.01] backdrop-blur-sm"
+      className="flex flex-col md:flex-row md:items-center justify-between p-3 border border-white/10 hover:bg-white/5 transition-colors bg-white/[0.01] backdrop-blur-sm"
     >
       <div className="flex items-center space-x-3">
         <div className="flex -space-x-2 items-center">

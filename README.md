@@ -85,8 +85,12 @@ Our batch deposit service was designed to handle **multi-chain deposits** with h
    - Allows showing per-chain and overall batch progress without hardcoding UI logic into the service.
 
 6. **Granular Retry per Chain**
+
    - Failed chains can be retried individually with `retryChain` without restarting the whole batch.
    - Optimizes UX for partial successes.
+
+7. **Portable**
+   - Well it just ts file not react specific
 
 ### Why Not Just Call Wagmi Directly in Components?
 
@@ -108,6 +112,11 @@ By **centralizing all batch execution logic** into `createBatchDepositService`, 
 `createBatchDepositService` gives us a **modular, resilient, and testable foundation** for multi-chain deposit flows — one that handles chain switching, approvals, deposits, retries, timeouts, progress tracking, and user cancellations in a single cohesive service.
 
 ---
+
+## Notes & Challenges
+
+- One of the biggest time sinks — and not particularly productive — was figuring out how to get USDC to the Sei Testnet.  
+  The official Circle CCTP reference at [https://replit.com/@G9000/cctp-v2-web-app](https://replit.com/@G9000/cctp-v2-web-app) did not work for me despite multiple attempts. While eventually resolved via a script (`bluewater-usdc-cctp`), this consumed a disproportionate amount of the available build time.
 
 ## Sequence Diagram
 

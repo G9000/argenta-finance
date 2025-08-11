@@ -176,7 +176,7 @@ export function BatchOperationProgress({
                   : "border-white/10"
               )}
             >
-              <div className="flex items-start justify-between mb-3 gap-4">
+              <div className="flex flex-col md:flex-row gap-5 items-start justify-between mb-3 gap-4">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="flex -space-x-1 flex-shrink-0">
                     {getChainLogo(chainStatus.chainId) && (
@@ -218,7 +218,7 @@ export function BatchOperationProgress({
                 {(chainStatus.status === "failed" ||
                   chainStatus.status === "partial") &&
                   chainStatus.canRetry && (
-                    <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                    <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0 ml-auto">
                       <button
                         onClick={() => {
                           if (progress.isRetrying) return; // hard guard

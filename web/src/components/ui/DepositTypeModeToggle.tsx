@@ -19,7 +19,7 @@ export function DepositTypeModeToggle({
   return (
     <div
       className={cn(
-        "relative flex overflow-hidden border border-white/10",
+        "relative flex overflow-hidden border border-white/10 ml-auto",
         "text-xs font-mono"
       )}
       role="tablist"

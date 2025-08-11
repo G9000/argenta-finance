@@ -161,7 +161,7 @@ export function DepositInput({
     <div className="space-y-6">
       {/* Header */}
       <div className="space-y-4">
-        <div className="flex items-start justify-between gap-6">
+        <div className="flex flex-col md:flex-row items-start justify-between gap-6">
           <DepositTypeHeader
             isMultiChainMode={isMultiChainMode}
             selectedChainName={getChainName(selectedChainId)}

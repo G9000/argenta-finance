@@ -16,6 +16,9 @@ export { ExecuteButton } from "./ExecuteButton";
 export { AmountInput } from "./AmountInput";
 export { ValidationMessages } from "./ValidationMessages";
 export { DepositTypeHeader } from "./DepositTypeHeader";
+export { AddressDisplay } from "./AddressDisplay";
+export { EnsAvatar } from "./EnsAvatar";
+export { VaultEmptyState } from "./VaultEmptyState";
 
 export type { ProgressStep } from "./TransactionProgress";
 export type { AlertType } from "./Alert";

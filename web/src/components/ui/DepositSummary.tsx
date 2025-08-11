@@ -73,7 +73,7 @@ export function DepositSummary({
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs">
+        <div className="flex flex-col md:flex-row gap-2 mt-10 md:mt-0 md:items-center justify-between text-xs">
           <span className="text-gray-500 uppercase tracking-wide">
             Estimated Transactions
           </span>

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { getChainName, SupportedChainId } from "@/constant/contracts";
 import { getChainLogo } from "@/lib/tokens";
+import { useEnsName } from "@/hooks/useEnsName";
 
 interface UserWelcomeHeaderProps {
   address: string;
@@ -22,16 +23,21 @@ export function UserWelcomeHeader({
   className,
 }: UserWelcomeHeaderProps) {
   const [logoError, setLogoError] = useState(false);
+  const { data: ensName } = useEnsName({ address });
 
   useEffect(() => {
     setLogoError(false);
   }, [chainId]);
 
+  const formatAddress = (addr: string) =>
+    `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  const displayName = ensName || formatAddress(address);
+
   const displaySubtitle =
     subtitle ||
-    `WELCOME ${address.slice(0, 6)}...${address.slice(
-      -4
-    )} YOU ARE CURRENTLY ON ${getChainName(chainId).toUpperCase()}`;
+    `WELCOME ${displayName.toUpperCase()} YOU ARE CURRENTLY ON ${getChainName(
+      chainId
+    ).toUpperCase()}`;
 
   return (
     <div className={cn("relative my-5 md:my-10 font-mono", className)}>

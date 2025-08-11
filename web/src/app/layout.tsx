@@ -27,7 +27,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Ensure proper mobile scaling */}
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body
