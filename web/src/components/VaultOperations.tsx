@@ -25,11 +25,12 @@ import { OperationTabs } from "./OperationTabs";
 import { DepositInput } from "./DepositInput";
 import { BatchOperationProgress } from "./BatchOperationProgress";
 import { PortfolioTabs } from "./PortfolioTabs";
+import { TransactionHistory } from "./TransactionHistory";
 import { getTokenLogo } from "@/lib/tokens";
 import { OperationType } from "@/types/ui-state";
 import { OPERATION_TYPES } from "@/constant/operation-constants";
 import { createComponentLogger } from "@/lib/logger";
-import { UserWelcomeHeader, DebugInfo } from "./ui";
+import { UserWelcomeHeader } from "./ui";
 
 const logger = createComponentLogger("VaultOperations");
 
@@ -50,9 +51,6 @@ export function VaultOperations() {
     isSupportedChainId(chainId) ? chainId : SupportedChainId.ETH_SEPOLIA
   );
 
-  const [isClient, setIsClient] = useState(false);
-
-  // Unified deposit validation (replaces both single and batch validation)
   const {
     batchState,
     updateAmount: updateDepositAmount,
@@ -61,7 +59,6 @@ export function VaultOperations() {
     getValidChainAmounts,
   } = useBatchDepositValidation();
 
-  // Unified deposit service (handles both single and multi-chain)
   const {
     executeBatch,
     retryChain,
@@ -72,7 +69,6 @@ export function VaultOperations() {
     progress: depositProgress,
   } = useBatchDeposit();
 
-  // UI state
   const [showDepositProgress, setShowDepositProgress] = useState(false);
   const [depositCompletedSuccessfully, setDepositCompletedSuccessfully] =
     useState(false);
@@ -98,11 +94,6 @@ export function VaultOperations() {
       setSelectedChainId(chainId);
     }
   }, [chainId]);
-
-  // Track client-side mounting to prevent hydration mismatches
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   const {
     walletBalance: {
@@ -237,17 +228,6 @@ export function VaultOperations() {
                 isProcessing={isExecuting}
                 selectedChainId={selectedChainId}
               />
-
-              {isClient && (
-                <DebugInfo
-                  items={{
-                    "Your wallet": address,
-                    "USDC contract": getUsdcAddress(selectedChainId),
-                    "Vault contract": getVaultAddress(selectedChainId),
-                    Chain: getChainName(selectedChainId),
-                  }}
-                />
-              )}
             </div>
           ) : (
             <OperationInput
@@ -317,6 +297,11 @@ export function VaultOperations() {
             }}
           />
         )}
+
+        {/* Transaction History */}
+        <div className="border-t border-white/10 pt-6">
+          <TransactionHistory />
+        </div>
       </div>
     </div>
   );
