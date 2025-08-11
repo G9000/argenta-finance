@@ -5,6 +5,8 @@ Focus: multi-chain UX, a resilient batch **Approve → Deposit** flow, and clear
 > ✨ Key design choice: a **framework-agnostic task runner** (pure TypeScript service) orchestrates multi-chain deposits. React is just a thin UI wrapper around it.
 
 ---
+<img width="3464" height="2012" alt="スクリーンショット 2025-08-12 003907" src="https://github.com/user-attachments/assets/dc07d380-97a0-45fe-9909-7285720ad922" />
+DEM (Prior,  I accidentally approveda  massive allowance on Sepolia net, thus the approval skip)
 
 ## Approach & Architecture
 
