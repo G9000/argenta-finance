@@ -1,5 +1,7 @@
 # Argenta Multi-Chain Vault (Sepolia + Sei Testnet)
 
+Live APP URL: https://argenta-finance.vercel.app/
+
 Focus: multi-chain UX, a resilient batch **Approve → Deposit** flow, and clear transaction feedback.
 
 > ✨ Key design choice: a **framework-agnostic task runner** (pure TypeScript service) orchestrates multi-chain deposits. React is just a thin UI wrapper around it.
