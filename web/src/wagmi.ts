@@ -9,7 +9,13 @@ import { sepolia, seiTestnet } from "viem/chains";
 import { http } from "viem";
 
 const walletConnectProjectId =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!;
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
+  "ff8637d90895d98b162fd1e0d743e5be";
+if (!walletConnectProjectId) {
+  throw new Error(
+    "Environment variable NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID must be defined"
+  );
+}
 
 const SEPOLIA_RPC_URL =
   process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ||
