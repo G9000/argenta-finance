@@ -34,7 +34,13 @@ function getViemChain(chainId: SupportedChainId): Chain {
 }
 
 /**
- * Wrap a promise with timeout
+ * Wraps a promise with a timeout. If the promise does not resolve within the specified time,
+ * the returned promise rejects with a timeout error.
+ *
+ * @template T
+ * @param {Promise<T>} promise - The promise to wrap.
+ * @param {number} timeoutMs - Timeout in milliseconds.
+ * @returns {Promise<T>} The wrapped promise.
  */
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return Promise.race([
@@ -49,7 +55,13 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
 }
 
 /**
- * Retry a function with exponential backoff
+ * Retries an async operation with exponential backoff and timeout.
+ *
+ * @template T
+ * @param {() => Promise<T>} operation - The async operation to retry.
+ * @param {BatchDepositConfig} config - Retry and timeout configuration.
+ * @param {string} operationName - Name for logging and error messages.
+ * @returns {Promise<T>} Resolves with operation result or rejects after all retries fail.
  */
 async function withRetry<T>(
   operation: () => Promise<T>,
@@ -85,8 +97,14 @@ async function withRetry<T>(
 }
 
 /**
- * Execute user transaction without retries on user rejection
- * If user rejects, immediately throw error instead of retrying
+ * Executes a user transaction, immediately aborting on user rejection.
+ * If the user cancels, throws a cancellation error. Otherwise, retries on other errors.
+ *
+ * @template T
+ * @param {() => Promise<T>} operation - The async transaction to execute.
+ * @param {BatchDepositConfig} config - Retry and timeout configuration.
+ * @param {string} operationName - Name for error messages.
+ * @returns {Promise<T>} Resolves with transaction result or throws on user cancellation.
  */
 async function withUserTransaction<T>(
   operation: () => Promise<T>,
@@ -126,7 +144,16 @@ export interface BatchDepositService {
 }
 
 /**
- * Create a functional batch deposit service
+ * Creates a batch deposit service for multi-chain vault deposits.
+ *
+ * The service manages the full lifecycle of batch deposits:
+ * - Chain switching, approval, and deposit for each chain
+ * - Progress tracking and event emission for UI updates
+ * - Error handling, retries, and user cancellation
+ *
+ * @param {BatchDepositConfig} [config=DEFAULT_CONFIG] - Optional configuration for retries and timeouts.
+ * @returns {BatchDepositService} The batch deposit service instance.
+ * @throws {Error} If no wallet is connected or user address is invalid.
  */
 export function createBatchDepositService(
   config: BatchDepositConfig = DEFAULT_CONFIG
@@ -153,6 +180,9 @@ export function createBatchDepositService(
 
   const events = createTypedEventEmitter<BatchDepositEvents>();
 
+  /**
+   * Emits a progress update event with the current step and percentage.
+   */
   function updateProgress() {
     const percentage = totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
     events.emit("progressUpdated", {
@@ -162,6 +192,9 @@ export function createBatchDepositService(
     });
   }
 
+  /**
+   * Increments the current step and updates progress.
+   */
   function incrementStep() {
     currentStep++;
     updateProgress();
@@ -171,12 +204,29 @@ export function createBatchDepositService(
    * Calculate total steps needed for batch execution.
    * Each chain = 1 switch + 1 approval + 1 deposit = 3 steps
    */
+  /**
+   * Calculates the total number of steps for a batch operation.
+   * Each chain requires 3 steps: switch, approve, deposit.
+   *
+   * @param {ChainAmount[]} chainAmounts - Array of chain/amount pairs.
+   * @returns {Promise<number>} Total steps for the batch.
+   */
   async function calculateTotalSteps(
     chainAmounts: ChainAmount[]
   ): Promise<number> {
     return chainAmounts.length * 3;
   }
 
+  /**
+   * Checks if the user needs to approve the vault contract for the given token and amount.
+   * Reads the current allowance and compares to the required amount.
+   *
+   * @param {SupportedChainId} chainId - The chain to check.
+   * @param {Address} tokenAddress - The token contract address.
+   * @param {Address} spenderAddress - The vault contract address.
+   * @param {bigint} amount - The required allowance amount.
+   * @returns {Promise<boolean>} True if approval is needed, false otherwise.
+   */
   async function checkNeedsApproval(
     chainId: SupportedChainId,
     tokenAddress: Address,
@@ -232,6 +282,13 @@ export function createBatchDepositService(
     }
   }
 
+  /**
+   * Switches the user's wallet to the specified chain.
+   * Retries on failure using the configured retry logic.
+   *
+   * @param {SupportedChainId} chainId - The chain to switch to.
+   * @returns {Promise<void>} Resolves when the chain is switched.
+   */
   async function executeChainSwitch(chainId: SupportedChainId): Promise<void> {
     return withRetry(
       async () => {

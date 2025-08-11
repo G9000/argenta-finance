@@ -1,3 +1,20 @@
+/**
+ * React hook for managing multi-chain batch deposit operations.
+ *
+ * This hook provides a high-level interface for executing, retrying, and cancelling batch deposits
+ * across multiple chains, with real-time progress tracking and error handling. It wraps the batch deposit service
+ * and exposes its main operations, while also managing UI state for progress, results, and errors.
+ *
+ * Features:
+ * - Initializes the batch deposit service when a wallet address is available.
+ * - Subscribes to service events to update UI state (progress, results, errors).
+ * - Provides executeBatch to start a batch deposit across chains.
+ * - Provides retryChain to retry a failed/cancelled chain operation.
+ * - Provides cancel to abort an in-progress batch operation.
+ * - Tracks current progress, active chain, operation type, and retry state.
+ *
+ * @returns {UseBatchDepositReturn} Object containing service instance, main operations, state, and progress info.
+ */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount } from "wagmi";
 import {
@@ -34,6 +51,9 @@ export interface UseBatchDepositReturn {
 }
 
 export function useBatchDeposit(): UseBatchDepositReturn {
+  /**
+   * The batch deposit service instance, or null if not initialized.
+   */
   const { address } = useAccount();
 
   const [isExecuting, setIsExecuting] = useState(false);
@@ -241,6 +261,13 @@ export function useBatchDeposit(): UseBatchDepositReturn {
   const executeBatch = useCallback(
     async (chainAmounts: ChainAmount[]) => {
       // lazy init if somehow not ready yet
+      /**
+       * Executes a batch deposit operation across multiple chains.
+       *
+       * @param {ChainAmount[]} chainAmounts - Array of chain/amount pairs to deposit.
+       * @returns {Promise<BatchDepositResult[]>} Resolves with results for each chain.
+       * @throws {Error} If the service is not available or initialization fails.
+       */
       if (!serviceRef.current) {
         if (address) {
           try {
@@ -261,6 +288,14 @@ export function useBatchDeposit(): UseBatchDepositReturn {
 
   const retryChain = useCallback(
     async (chainId: SupportedChainId, amount: string) => {
+      /**
+       * Retries a failed or cancelled chain deposit operation.
+       *
+       * @param {SupportedChainId} chainId - The chain to retry.
+       * @param {string} amount - The amount to deposit on retry.
+       * @returns {Promise<BatchDepositResult>} Resolves with the result for the retried chain.
+       * @throws {Error} If another retry is in progress or service is unavailable.
+       */
       const svc = serviceRef.current;
       if (!svc) throw new Error("Service not available");
 
@@ -316,6 +351,9 @@ export function useBatchDeposit(): UseBatchDepositReturn {
   );
 
   const cancel = useCallback(() => {
+    /**
+     * Cancels an in-progress batch deposit operation.
+     */
     serviceRef.current?.cancel();
   }, []);
 
