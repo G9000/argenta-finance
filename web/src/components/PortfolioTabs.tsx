@@ -35,7 +35,7 @@ export function PortfolioTabs({ activeTab, onTabChange }: PortfolioTabsProps) {
                 : "text-gray-400 border-r border-white/10"
             )}
           >
-            Summary
+            SUMMARY
           </Tabs.Tab>
           <Tabs.Tab
             value="breakdown"
@@ -47,7 +47,7 @@ export function PortfolioTabs({ activeTab, onTabChange }: PortfolioTabsProps) {
               activeTab === "breakdown" ? "text-teal-400" : "text-gray-400"
             )}
           >
-            By Network
+            BY NETWORK
           </Tabs.Tab>
           <Tabs.Indicator className="absolute inset-y-0 z-[-1] transition-all duration-200 ease-out bg-teal-500/10 data-[orientation=horizontal]:w-[var(--active-tab-width)] data-[orientation=horizontal]:translate-x-[var(--active-tab-left)]" />
         </Tabs.List>

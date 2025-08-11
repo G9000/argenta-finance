@@ -2,8 +2,8 @@
  * Operation type constants
  */
 export const OPERATION_TYPES = {
-  DEPOSIT: "deposit",
-  WITHDRAW: "withdraw",
+  DEPOSIT: "DEPOSIT",
+  WITHDRAW: "WITHDRAW",
 } as const;
 
 /**

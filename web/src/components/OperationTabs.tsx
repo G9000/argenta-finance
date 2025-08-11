@@ -40,7 +40,7 @@ export function OperationTabs({
                 : "text-gray-400 border-r border-white/10"
             )}
           >
-            Deposit
+            {OPERATION_TYPES.DEPOSIT}
           </Tabs.Tab>
           <Tabs.Tab
             value={OPERATION_TYPES.WITHDRAW}
@@ -54,7 +54,7 @@ export function OperationTabs({
                 : "text-gray-400"
             )}
           >
-            Withdraw
+            {OPERATION_TYPES.WITHDRAW}
           </Tabs.Tab>
           <Tabs.Indicator className="absolute inset-y-0 z-[-1] transition-all duration-200 ease-out bg-teal-500/10 data-[orientation=horizontal]:w-[var(--active-tab-width)] data-[orientation=horizontal]:translate-x-[var(--active-tab-left)]" />
         </Tabs.List>

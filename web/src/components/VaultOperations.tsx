@@ -88,20 +88,16 @@ export function VaultOperations() {
     if (!isExecuting && depositResults.length > 0) {
       setDepositCompletedSuccessfully(!depositError);
 
-      // Invalidate balance queries after successful deposits
       if (!depositError) {
         const hasSuccessfulDeposits = depositResults.some(
           (result) => result.status === "success"
         );
 
         if (hasSuccessfulDeposits) {
-          // Invalidate all balance-related queries to refresh portfolio values
-          // This includes both wallet balances (ERC20) and vault balances
           queryClient.invalidateQueries({
             queryKey: ["readContract"],
           });
 
-          // Also invalidate multicall queries used by usePortfolioTotals
           queryClient.invalidateQueries({
             queryKey: ["readContracts"],
           });
@@ -148,7 +144,6 @@ export function VaultOperations() {
   };
 
   const handleRetryChain = async (chainId: number) => {
-    // Get the amount from the batch state inputs
     const amount = batchState.inputs[chainId as SupportedChainId];
     if (!amount) return;
 
@@ -156,14 +151,11 @@ export function VaultOperations() {
       const result = await retryChain(chainId as SupportedChainId, amount);
       logger.debug(`Retry completed for chain ${chainId}:`, result);
 
-      // Invalidate balance queries after successful retry
       if (result.status === "success") {
-        // Invalidate all balance-related queries to refresh portfolio values
         queryClient.invalidateQueries({
           queryKey: ["readContract"],
         });
 
-        // Also invalidate multicall queries used by usePortfolioTotals
         queryClient.invalidateQueries({
           queryKey: ["readContracts"],
         });
@@ -256,7 +248,6 @@ export function VaultOperations() {
       <div className="grid gap-10 bg-teal-500/20 px-4 py-10">
         <UserWelcomeHeader address={address} chainId={selectedChainId} />
 
-        {/* Portfolio Tabs */}
         <PortfolioTabs activeTab={portfolioTab} onTabChange={setPortfolioTab} />
         <OperationTabs activeTab={activeTab} onTabChange={setActiveTab}>
           {activeTab === OPERATION_TYPES.DEPOSIT ? (
@@ -301,22 +292,21 @@ export function VaultOperations() {
                     : result.status === "cancelled"
                     ? "failed"
                     : result.status === "partial"
-                    ? "partial" // Partial: approval succeeded, deposit cancelled
+                    ? "partial"
                     : result.status === "retrying"
                     ? "retrying"
                     : "failed",
-                // Disable retry UI while batch still running or another retry active
+
                 canRetry:
                   !isExecuting &&
                   !depositProgress.isRetrying &&
                   (result.status === "cancelled" ||
-                    result.status === "partial" || // allow retry of deposit
+                    result.status === "partial" ||
                     (result.status === "failed" && !result.userCancelled)),
                 error: result.status === "retrying" ? undefined : result.error,
                 approveTxHash: result.approvalTxHash,
                 depositTxHash: result.depositTxHash,
               })),
-              // If a retry is underway, force not-complete so step bar shows
               isComplete:
                 !depositProgress.isRetrying &&
                 !isExecuting &&
@@ -340,7 +330,6 @@ export function VaultOperations() {
           />
         )}
 
-        {/* Transaction History */}
         <div className="border-t border-white/10 pt-6">
           <TransactionHistory />
         </div>
