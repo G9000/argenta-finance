@@ -60,7 +60,7 @@ pnpm start                 # Runs transfer.js to bridge USDC to Sei Testnet
 
 ## Why We Use `createBatchDepositService` instead of WAGMI hook
 
-PS: THIS IS BEFORE I KNEW WagmiCore exist.
+PS: THIS IS BEFORE I KNEW WagmiCore exists soooo yeah.
 
 Our batch deposit service was designed to handle **multi-chain deposits** with high reliability, especially in a DeFi context where network conditions and RPC reliability vary widely. Instead of relying on simple sequential calls, we built a **resilient, event-driven execution model**.
 
