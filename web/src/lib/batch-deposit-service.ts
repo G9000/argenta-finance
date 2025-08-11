@@ -8,7 +8,7 @@ import {
 import { appChains } from "@/lib/chains";
 import { simpleVaultAbi } from "@/generated/wagmi";
 import { parseAmountToBigInt, isUserRejection } from "@/lib/vault-operations";
-import { createTypedEventEmitter } from "@/lib/typed-event-emitter";
+import { createTypedEventEmitter } from "@/types/typed-event-emitter";
 import type {
   ChainAmount,
   BatchDepositConfig,

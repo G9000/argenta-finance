@@ -15,25 +15,25 @@ import { cn } from "@/lib/utils";
 import { formatBalance } from "@/lib/format";
 import { getTokenLogo } from "@/lib/tokens";
 import { useChainBalances } from "@/hooks";
-import type { BatchDepositState, ChainDepositAmount } from "@/types/ui-state";
+import type { BatchDepositState } from "@/types/ui-state";
 
-interface BatchDepositInputProps {
+interface UnifiedDepositInputProps {
   batchState: BatchDepositState;
   onAmountChange: (chainId: SupportedChainId, amount: string) => void;
   onMaxClick: (chainId: SupportedChainId) => void;
-  onExecuteBatch: () => void;
+  onExecuteDeposit: () => void;
   disabled?: boolean;
   isProcessing?: boolean;
 }
 
-export function BatchDepositInput({
+export function UnifiedDepositInput({
   batchState,
   onAmountChange,
   onMaxClick,
-  onExecuteBatch,
+  onExecuteDeposit,
   disabled = false,
   isProcessing = false,
-}: BatchDepositInputProps) {
+}: UnifiedDepositInputProps) {
   const { address } = useAccount();
 
   // Get balances for all chains (call hooks at top level)
@@ -83,15 +83,32 @@ export function BatchDepositInput({
     }).length;
   };
 
+  const getButtonText = () => {
+    const activeChains = getActiveChainCount();
+    if (isProcessing) {
+      return activeChains > 1 
+        ? "Processing Multi-Chain Deposit..." 
+        : "Processing Deposit...";
+    }
+    
+    if (activeChains === 0) {
+      return "Enter Amount to Deposit";
+    } else if (activeChains === 1) {
+      return "Execute Deposit";
+    } else {
+      return `Execute Multi-Chain Deposit (${activeChains} chains)`;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="space-y-1">
         <div className="text-xs text-gray-400 uppercase tracking-wide">
-          Multi-Chain Batch Deposit
+          Deposit USDC
         </div>
         <div className="text-sm text-gray-300">
-          Enter deposit amounts for multiple chains and execute them in sequence
+          Enter amounts for one or multiple chains. All deposits will be executed in sequence.
         </div>
       </div>
 
@@ -212,7 +229,7 @@ export function BatchDepositInput({
         })}
       </div>
 
-      {/* Batch Summary */}
+      {/* Summary */}
       {hasAnyAmount && (
         <div className="border border-teal-500/30 rounded-lg p-4 bg-teal-500/5">
           <div className="space-y-2">
@@ -250,7 +267,7 @@ export function BatchDepositInput({
       {/* Execute Button */}
       <button
         type="button"
-        onClick={onExecuteBatch}
+        onClick={onExecuteDeposit}
         disabled={isButtonDisabled}
         className={cn(
           "w-full p-4 font-mono uppercase text-sm transition-colors relative",
@@ -265,9 +282,7 @@ export function BatchDepositInput({
           </div>
         )}
         <span className={cn(isProcessing && "ml-6")}>
-          {isProcessing
-            ? "Processing Batch..."
-            : `Execute Batch Deposit (${getActiveChainCount()} chains)`}
+          {getButtonText()}
         </span>
       </button>
 

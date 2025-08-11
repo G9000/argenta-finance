@@ -43,20 +43,6 @@ export function OperationTabs({
             Deposit
           </Tabs.Tab>
           <Tabs.Tab
-            value={OPERATION_TYPES.BATCH_DEPOSIT}
-            className={cn(
-              "flex-1 px-4 py-2 text-sm font-mono transition-colors outline-none",
-              "hover:text-white",
-              "data-[selected]:bg-teal-500/10 data-[selected]:text-teal-400",
-              "focus-visible:bg-teal-500/5",
-              activeTab === OPERATION_TYPES.BATCH_DEPOSIT
-                ? "text-teal-400 border-r border-teal-500/50"
-                : "text-gray-400 border-r border-white/10"
-            )}
-          >
-            Batch Deposit
-          </Tabs.Tab>
-          <Tabs.Tab
             value={OPERATION_TYPES.WITHDRAW}
             className={cn(
               "flex-1 px-4 py-2 text-sm font-mono transition-colors outline-none",
@@ -76,12 +62,6 @@ export function OperationTabs({
 
       <div>
         <Tabs.Panel value={OPERATION_TYPES.DEPOSIT} className="outline-none">
-          {children}
-        </Tabs.Panel>
-        <Tabs.Panel
-          value={OPERATION_TYPES.BATCH_DEPOSIT}
-          className="outline-none"
-        >
           {children}
         </Tabs.Panel>
         <Tabs.Panel value={OPERATION_TYPES.WITHDRAW} className="outline-none">
