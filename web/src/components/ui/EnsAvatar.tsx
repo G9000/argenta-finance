@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { useEnsName, useEnsAvatar, useChainId } from "wagmi";
+import { useChainId } from "wagmi";
+import { useEnsAvatar } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { isAddress } from "viem";
 import { normalize } from "viem/ens";
@@ -10,12 +11,14 @@ import { SupportedChainId } from "@/constant/contracts";
 
 interface EnsAvatarProps {
   address: string;
+  ensName: string;
   size?: number;
   className?: string;
   showFallback?: boolean;
 }
 
 export function EnsAvatar({
+  ensName,
   address,
   size = 32,
   className = "",
@@ -24,21 +27,8 @@ export function EnsAvatar({
   const [imageError, setImageError] = useState(false);
   const currentChainId = useChainId();
 
-  const getEnsChainId = () => {
-    if (currentChainId === SupportedChainId.ETH_SEPOLIA) {
-      return SupportedChainId.ETH_SEPOLIA;
-    }
-
-    return 1;
-  };
-
-  const ensChainId = getEnsChainId();
-
-  const { data: ensName, isLoading: ensNameLoading } = useEnsName({
-    address:
-      address && isAddress(address) ? (address as `0x${string}`) : undefined,
-    chainId: ensChainId,
-  });
+  const shouldResolveEns =
+    currentChainId === SupportedChainId.ETH_SEPOLIA || currentChainId === 1;
 
   const normalizedEnsName = ensName
     ? (() => {
@@ -53,10 +43,7 @@ export function EnsAvatar({
 
   const { data: ensAvatar, isLoading: avatarLoading } = useEnsAvatar({
     name: normalizedEnsName || undefined,
-    chainId: ensChainId,
-    query: {
-      enabled: !!normalizedEnsName,
-    },
+    enabled: shouldResolveEns && !!normalizedEnsName,
   });
 
   if (ensAvatar && !imageError) {
@@ -80,7 +67,7 @@ export function EnsAvatar({
     );
   }
 
-  if ((ensNameLoading || avatarLoading) && !imageError) {
+  if (avatarLoading && !imageError) {
     return (
       <div
         className={cn(

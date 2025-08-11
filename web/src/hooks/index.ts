@@ -11,3 +11,6 @@ export { useOperationValidation } from "./useOperationValidation";
 
 // Batch operation hooks
 export { useBatchDepositValidation } from "./useBatchDepositValidation";
+
+// ENS hooks
+export { useEnsName, useEnsAvatar } from "./useEnsName";
