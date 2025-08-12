@@ -5,9 +5,9 @@ import { useState, useEffect } from "react";
 import { useAccount, useChainId } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  getChainName,
   isSupportedChainId,
   SupportedChainId,
+  SUPPORTED_CHAINS,
 } from "@/constant/contracts";
 import { parseAmountToBigInt } from "@/lib/vault-operations";
 import { useBatchDepositValidation } from "@/hooks";
@@ -65,6 +65,15 @@ export function Dashboard() {
     useState(false);
   const [executeLocked, setExecuteLocked] = useState(false);
 
+  const [lastAttemptedAmounts, setLastAttemptedAmounts] = useState<
+    Record<SupportedChainId, string>
+  >(() =>
+    SUPPORTED_CHAINS.reduce((acc, id) => {
+      acc[id] = "";
+      return acc;
+    }, {} as Record<SupportedChainId, string>)
+  );
+
   // Auto-show progress when execution starts
   useEffect(() => {
     if (isExecuting) {
@@ -109,7 +118,9 @@ export function Dashboard() {
   }, [chainId]);
 
   const handleRetryChain = async (chainId: number) => {
-    const amount = batchState.inputs[chainId as SupportedChainId];
+    const amount =
+      batchState.inputs[chainId as SupportedChainId] ||
+      lastAttemptedAmounts[chainId as SupportedChainId];
     if (!amount) return;
 
     try {
@@ -144,6 +155,14 @@ export function Dashboard() {
     if (validAmounts.length === 0) return;
 
     logger.debug("Starting deposit for", validAmounts.length, "chains");
+
+    setLastAttemptedAmounts((prev) => {
+      const next = { ...prev };
+      for (const { chainId, amount } of validAmounts) {
+        next[chainId] = amount;
+      }
+      return next;
+    });
 
     const chainAmounts: {
       chainId: SupportedChainId;
@@ -193,7 +212,6 @@ export function Dashboard() {
   };
 
   const handleRetryAllFailed = async () => {
-    // Open modal to show progress
     setShowDepositProgress(true);
     const failedOrPartial = depositResults.filter(
       (r) =>
@@ -204,7 +222,9 @@ export function Dashboard() {
     if (failedOrPartial.length === 0) return;
 
     for (const r of failedOrPartial) {
-      const amount = batchState.inputs[r.chainId as SupportedChainId];
+      const amount =
+        batchState.inputs[r.chainId as SupportedChainId] ||
+        lastAttemptedAmounts[r.chainId as SupportedChainId];
       if (!amount) continue;
       try {
         const result = await retryChain(r.chainId as SupportedChainId, amount);
@@ -220,7 +240,6 @@ export function Dashboard() {
   };
 
   const handleResetAll = () => {
-    // Cancel in-flight (if any) and clear local state
     try {
       cancelDeposit();
     } catch {}
@@ -229,9 +248,15 @@ export function Dashboard() {
     setShowDepositProgress(false);
     setDepositCompletedSuccessfully(false);
     setExecuteLocked(false);
+    setLastAttemptedAmounts(() =>
+      SUPPORTED_CHAINS.reduce((acc, id) => {
+        acc[id] = "";
+        return acc;
+      }, {} as Record<SupportedChainId, string>)
+    );
   };
 
-  const handleWithdraw = () => {
+  const _handleWithdraw = () => {
     // logger.debug(
     //   "Withdraw:",
     //   withdrawAmount,
@@ -265,7 +290,6 @@ export function Dashboard() {
                 canRetryAll={
                   !isExecuting &&
                   !depositProgress.isRetrying &&
-                  depositResults.length > 0 &&
                   depositResults.some((r) => r.status !== "success")
                 }
                 onRetryAllFailed={handleRetryAllFailed}
@@ -365,7 +389,7 @@ export function Dashboard() {
         {!showDepositProgress &&
           (isExecuting ||
             depositProgress.isRetrying ||
-            (depositResults.length > 0 && !depositProgress.isRetrying)) && (
+            depositResults.length > 0) && (
             <button
               onClick={() => setShowDepositProgress(true)}
               className="fixed bottom-4 right-4 z-40 px-4 py-3 shadow-lg border border-teal-500/40 bg-gradient-to-br from-gray-900/95 to-gray-800/90 backdrop-blur-md text-teal-300 hover:text-white hover:from-gray-800 hover:to-gray-700 transition-colors font-mono text-xs uppercase tracking-wide flex items-center gap-3 rounded-lg max-w-[70vw]"

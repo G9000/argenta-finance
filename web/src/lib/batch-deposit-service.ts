@@ -24,6 +24,7 @@ import type {
   BatchDepositEvents,
 } from "@/types/batch-operations";
 import { DEFAULT_BATCH_DEPOSIT_CONFIG as DEFAULT_CONFIG } from "@/constant/batch-operation-constants";
+import { BATCH_MESSAGES } from "@/constant/batch-messages";
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -35,7 +36,7 @@ async function withTimeout<T>(
 ): Promise<T> {
   const timeoutPromise = new Promise<never>((_, reject) =>
     setTimeout(
-      () => reject(new Error(`Timeout after ${timeoutMs}ms`)),
+      () => reject(new Error(BATCH_MESSAGES.ERRORS.TIMEOUT(timeoutMs))),
       timeoutMs
     )
   );
@@ -95,7 +96,7 @@ export function createBatchDepositService(
 ): BatchDepositService {
   const account = getAccount(wagmiConfig);
   if (!account.address) {
-    throw new Error("No wallet connected");
+    throw new Error(BATCH_MESSAGES.ERRORS.NO_WALLET_CONNECTED);
   }
   const userAddress = account.address;
 
@@ -189,7 +190,7 @@ export function createBatchDepositService(
       hash = await withTimeout(submitTx(), config.timeoutMs);
     } catch (error) {
       if (isUserRejection(error)) {
-        throw new Error("User cancelled approval");
+        throw new Error(BATCH_MESSAGES.ERRORS.USER_CANCELLED_APPROVAL);
       }
       hash = await retryOperation(
         submitTx,
@@ -248,7 +249,7 @@ export function createBatchDepositService(
       hash = await withTimeout(submitTx(), config.timeoutMs);
     } catch (error) {
       if (isUserRejection(error)) {
-        throw new Error("User cancelled deposit");
+        throw new Error(BATCH_MESSAGES.ERRORS.USER_CANCELLED_DEPOSIT);
       }
       hash = await retryOperation(
         submitTx,
@@ -320,7 +321,8 @@ export function createBatchDepositService(
       emitStepEvent("switching", "Completed");
       if (!isRetry) incrementProgress();
 
-      if (isCancelled) throw new Error("Operation cancelled");
+      if (isCancelled)
+        throw new Error(BATCH_MESSAGES.ERRORS.OPERATION_CANCELLED);
 
       // Get contract addresses
       const { usdcAddress, vaultAddress } = validateChainOperation(chainId);
@@ -350,7 +352,7 @@ export function createBatchDepositService(
           ) {
             result.status = "cancelled";
             result.userCancelled = true;
-            result.error = "User cancelled approval";
+            result.error = BATCH_MESSAGES.ERRORS.USER_CANCELLED_APPROVAL;
             result.completedAt = Date.now();
             return result;
           }
@@ -362,7 +364,8 @@ export function createBatchDepositService(
       }
       if (!isRetry) incrementProgress();
 
-      if (isCancelled) throw new Error("Operation cancelled");
+      if (isCancelled)
+        throw new Error(BATCH_MESSAGES.ERRORS.OPERATION_CANCELLED);
 
       // Step 3: Deposit
       emitStepEvent("depositing", "Started");
@@ -381,7 +384,7 @@ export function createBatchDepositService(
         ) {
           result.status = "partial";
           result.userCancelled = true;
-          result.error = "User cancelled deposit";
+          result.error = BATCH_MESSAGES.ERRORS.USER_CANCELLED_DEPOSIT;
           result.completedAt = Date.now();
           return result;
         }
@@ -393,7 +396,8 @@ export function createBatchDepositService(
       return result;
     } catch (error) {
       result.status = "failed";
-      result.error = error instanceof Error ? error.message : "Unknown error";
+      result.error =
+        error instanceof Error ? error.message : BATCH_MESSAGES.ERRORS.UNKNOWN;
       result.completedAt = Date.now();
       throw error;
     }
@@ -403,7 +407,7 @@ export function createBatchDepositService(
     chainAmounts: ChainAmount[]
   ): Promise<BatchDepositResult[]> {
     if (isRunning) {
-      throw new Error("Batch execution already in progress");
+      throw new Error(BATCH_MESSAGES.ERRORS.BATCH_ALREADY_RUNNING);
     }
 
     isRunning = true;
@@ -438,14 +442,17 @@ export function createBatchDepositService(
           const failedResult: BatchDepositResult = {
             chainId: chainAmount.chainId,
             status: "failed",
-            error: error instanceof Error ? error.message : "Unknown error",
+            error:
+              error instanceof Error
+                ? error.message
+                : BATCH_MESSAGES.ERRORS.UNKNOWN,
             startedAt: Date.now(),
             completedAt: Date.now(),
           };
           results.push(failedResult);
           events.emit("chainFailed", {
             chainId: chainAmount.chainId,
-            error: failedResult.error || "Unknown error",
+            error: failedResult.error || BATCH_MESSAGES.ERRORS.UNKNOWN,
           });
         }
       }
@@ -454,7 +461,9 @@ export function createBatchDepositService(
       return results;
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Batch failed";
+        error instanceof Error
+          ? error.message
+          : BATCH_MESSAGES.ERRORS.BATCH_FAILED;
       events.emit("batchFailed", { error: errorMessage });
       throw error;
     } finally {
@@ -467,12 +476,12 @@ export function createBatchDepositService(
     amount: string
   ): Promise<BatchDepositResult> {
     if (isRunning) {
-      throw new Error("Cannot retry while batch is running");
+      throw new Error(BATCH_MESSAGES.ERRORS.CANNOT_RETRY_WHILE_RUNNING);
     }
 
     if (activeRetryChain) {
       throw new Error(
-        `Retry already in progress for chain ${activeRetryChain}`
+        BATCH_MESSAGES.ERRORS.RETRY_ALREADY_IN_PROGRESS(activeRetryChain)
       );
     }
 
@@ -490,7 +499,9 @@ export function createBatchDepositService(
       return result;
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Retry failed";
+        error instanceof Error
+          ? error.message
+          : BATCH_MESSAGES.ERRORS.RETRY_FAILED;
       events.emit("chainFailed", { chainId, error: errorMessage });
       throw error;
     } finally {

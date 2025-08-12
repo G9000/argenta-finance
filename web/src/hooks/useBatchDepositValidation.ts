@@ -7,6 +7,7 @@ import {
 } from "@/constant/contracts";
 import { useChainBalances } from "./useChainBalances";
 import { CommonValidations } from "@/lib/validators";
+import { VALIDATION_MESSAGES } from "@/constant/operation-constants";
 import type { BatchDepositState } from "@/types/ui-state";
 
 interface UseBatchDepositValidationParams {
@@ -108,7 +109,9 @@ export function useBatchDepositValidation({
       }
 
       if (chainBalance.error) {
-        warnings[chainId].push("Unable to verify wallet balance");
+        warnings[chainId].push(
+          VALIDATION_MESSAGES.WARNINGS.WALLET_BALANCE_UNKNOWN
+        );
       } else if (chainBalance.data !== undefined) {
         try {
           const amountInWei = parseUnits(amount, USDC_DECIMALS);
@@ -117,18 +120,23 @@ export function useBatchDepositValidation({
               Number(chainBalance.data) / Math.pow(10, USDC_DECIMALS)
             ).toFixed(6);
             errors[chainId].push(
-              `Insufficient balance. Maximum: ${maxAmount} USDC`
+              VALIDATION_MESSAGES.ERRORS.INSUFFICIENT_WALLET_BALANCE(
+                "USDC",
+                maxAmount
+              )
             );
           }
-        } catch (error) {
-          errors[chainId].push("Invalid amount format");
+        } catch {
+          errors[chainId].push(
+            VALIDATION_MESSAGES.ERRORS.INVALID_AMOUNT_FORMAT
+          );
         }
       }
 
       const numericAmount = Number(amount);
       if (numericAmount > 10000) {
         warnings[chainId].push(
-          "Large transaction amount. Please double-check before proceeding"
+          VALIDATION_MESSAGES.WARNINGS.LARGE_TRANSACTION_AMOUNT
         );
       }
     });

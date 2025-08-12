@@ -27,6 +27,7 @@ import type {
   BatchTransactionType,
 } from "@/types/batch-operations";
 import { SupportedChainId } from "@/constant/contracts";
+import { BATCH_MESSAGES } from "@/constant/batch-messages";
 
 export interface UseBatchDepositReturn {
   service: BatchDepositService | null;
@@ -97,7 +98,7 @@ export function useBatchDeposit(): UseBatchDepositReturn {
         setError(
           error instanceof Error
             ? error.message
-            : "Service initialization failed"
+            : BATCH_MESSAGES.ERRORS.SERVICE_INITIALIZATION_FAILED
         );
       }
     }
@@ -274,13 +275,13 @@ export function useBatchDeposit(): UseBatchDepositReturn {
           try {
             serviceRef.current = createBatchDepositService();
             setServiceInitTick((t) => t + 1);
-          } catch (error) {
-            throw new Error("Service not available");
+          } catch {
+            throw new Error(BATCH_MESSAGES.ERRORS.SERVICE_NOT_AVAILABLE);
           }
         }
       }
       if (!serviceRef.current) {
-        throw new Error("Service not available");
+        throw new Error(BATCH_MESSAGES.ERRORS.SERVICE_NOT_AVAILABLE);
       }
       return await serviceRef.current.executeBatch(chainAmounts);
     },
@@ -298,18 +299,18 @@ export function useBatchDeposit(): UseBatchDepositReturn {
        * @throws {Error} If another retry is in progress or service is unavailable.
        */
       const svc = serviceRef.current;
-      if (!svc) throw new Error("Service not available");
+      if (!svc) throw new Error(BATCH_MESSAGES.ERRORS.SERVICE_NOT_AVAILABLE);
 
       // prevent retry if another in progress
       if (retryActiveChain && retryActiveChain !== chainId) {
         throw new Error(
-          `Another chain (id ${retryActiveChain}) is currently retrying. Please wait for it to finish before retrying this chain.`
+          BATCH_MESSAGES.ERRORS.RETRY_IN_PROGRESS_OTHER(retryActiveChain)
         );
       }
       if (retryActiveChain === chainId) {
         return Promise.reject(
           new Error(
-            `Retry for chain ${chainId} already in progress; please wait.`
+            BATCH_MESSAGES.ERRORS.RETRY_ALREADY_IN_PROGRESS_FOR(chainId)
           )
         );
       }
@@ -339,7 +340,9 @@ export function useBatchDeposit(): UseBatchDepositReturn {
         // No need to manually update here since the event handler will do it
 
         const errorMessage =
-          error instanceof Error ? error.message : "Retry failed";
+          error instanceof Error
+            ? error.message
+            : BATCH_MESSAGES.ERRORS.RETRY_FAILED;
         setError(errorMessage);
         if (retryActiveChain === chainId) {
           setRetryActiveChain(null);

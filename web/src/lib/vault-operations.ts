@@ -13,6 +13,7 @@ import {
 } from "@/constant/contracts";
 import { createComponentLogger } from "@/lib/logger";
 import { CommonValidations, validateOrThrow } from "@/lib/validators";
+import { BATCH_MESSAGES } from "@/constant/batch-messages";
 import type {
   BatchOperationError,
   BatchErrorType,
@@ -86,32 +87,37 @@ export function createBatchError(
 
   switch (errorType) {
     case "user_rejection":
-      message = "Transaction cancelled by user";
+      message = BATCH_MESSAGES.ERRORS.TRANSACTION_CANCELLED_BY_USER;
       isRetryable = true;
       suggestedAction = "Try again or skip this chain";
       break;
 
     case "insufficient_funds":
-      message = "Insufficient funds for this transaction";
+      message = BATCH_MESSAGES.ERRORS.INSUFFICIENT_FUNDS;
       isRetryable = false;
       suggestedAction = "Reduce the amount or add more funds";
       break;
 
     case "network":
-      message = "Network error occurred";
+      message = BATCH_MESSAGES.ERRORS.NETWORK_ERROR_OCCURRED;
       isRetryable = true;
       suggestedAction = "Check your connection and try again";
       break;
 
     case "transaction":
-      message = error?.shortMessage || error?.message || "Transaction failed";
+      message =
+        error?.shortMessage ||
+        error?.message ||
+        BATCH_MESSAGES.ERRORS.TRANSACTION_FAILED_GENERIC;
       isRetryable = true;
       suggestedAction = "Try again with different settings";
       break;
 
     default:
       message =
-        error?.shortMessage || error?.message || "An unexpected error occurred";
+        error?.shortMessage ||
+        error?.message ||
+        BATCH_MESSAGES.ERRORS.UNEXPECTED_ERROR_OCCURRED;
       isRetryable = true;
       suggestedAction = "Try again or contact support";
       break;
@@ -168,10 +174,9 @@ export function validateChainOperation(chainId: SupportedChainId): {
 
     return { usdcAddress, vaultAddress };
   } catch (error) {
+    const reason = error instanceof Error ? error.message : undefined;
     throw new Error(
-      `Invalid chain configuration for chain ${chainId}: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`
+      BATCH_MESSAGES.ERRORS.INVALID_CHAIN_CONFIGURATION(chainId, reason)
     );
   }
 }
