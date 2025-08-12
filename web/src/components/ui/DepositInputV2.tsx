@@ -15,6 +15,17 @@ import {
 } from "@/components/ui";
 import { formatUnits, parseUnits } from "viem/utils";
 
+// Helper function to validate amount using BigInt for precision
+const isValidAmount = (amount: string, decimals: number): boolean => {
+  if (!amount) return false;
+  try {
+    const amountWei = parseUnits(amount, decimals);
+    return amountWei > 0n;
+  } catch {
+    return false;
+  }
+};
+
 interface DepositInputProps {
   inputs: Record<SupportedChainId, string>;
   onAmountChange: (chainId: SupportedChainId, amount: string) => void;
@@ -66,24 +77,28 @@ export function DepositInputV2({
     balanceWei: chainBalances[chainId]?.data,
   }));
 
-  const { validChains, canProceed, firstError, hasEmptyAmounts } =
-    useInputValidation(validationInputs);
+  const {
+    validChains,
+    canProceed: _canProceed,
+    firstError,
+    hasEmptyAmounts,
+  } = useInputValidation(validationInputs);
 
   const activeChainIds = Array.from(activeChains).filter((chainId) => {
     const amount = inputs[chainId] || "";
-    const numericAmount = Number(amount);
-    return amount && Number.isFinite(numericAmount) && numericAmount > 0;
+    return isValidAmount(amount, getUsdc(chainId).decimals);
   });
 
   const hasAnyAmount = activeChainIds.length > 0;
 
-  // Prepare gas estimation data
   const chainAmountsForGas = Array.from(activeChains)
     .map((chainId) => ({
       chainId,
       amount: inputs[chainId] || "",
     }))
-    .filter((item) => item.amount && Number(item.amount) > 0);
+    .filter((item) =>
+      isValidAmount(item.amount, getUsdc(item.chainId).decimals)
+    );
 
   const {
     gasEstimates,
@@ -93,6 +108,9 @@ export function DepositInputV2({
     needsApprovalOnAnyChain,
     allChainsApproved,
     canProceedWithDeposit,
+    hasAllowanceLoading,
+    hasAllowanceErrors,
+    allAllowancesLoaded,
   } = useGasEstimation({
     chainAmounts: chainAmountsForGas,
     enabled: hasAnyAmount && address !== undefined,
@@ -133,7 +151,9 @@ export function DepositInputV2({
           chainId,
           amount: inputs[chainId] || "",
         }))
-        .filter(({ amount }) => amount && Number(amount) > 0);
+        .filter(({ chainId, amount }) =>
+          isValidAmount(amount, getUsdc(chainId).decimals)
+        );
 
       if (chainAmounts.length === 0) {
         return "0";
@@ -212,6 +232,9 @@ export function DepositInputV2({
             gasError={hasGasErrors}
             needsApprovalOnAnyChain={needsApprovalOnAnyChain}
             allChainsApproved={allChainsApproved}
+            hasAllowanceLoading={hasAllowanceLoading}
+            hasAllowanceErrors={hasAllowanceErrors}
+            allAllowancesLoaded={allAllowancesLoaded}
           />
 
           <div className="w-1/3 ml-auto">

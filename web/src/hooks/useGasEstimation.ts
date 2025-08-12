@@ -14,6 +14,8 @@ import { parseUnits, formatUnits } from "viem";
 import { erc20Abi } from "viem";
 import { simpleVaultAbi } from "@/generated/wagmi";
 
+const GAS_BUFFER_PERCENT = 20n;
+
 export interface TransactionEstimate {
   gasLimit: bigint;
   gasPrice: bigint;
@@ -31,6 +33,7 @@ export interface GasEstimateData {
   error: string | null;
   hasEnoughAllowance: boolean;
   needsApproval: boolean;
+  allowanceState: "loading" | "loaded" | "error";
   canAffordGas: boolean;
   nativeBalance: bigint;
   approvalSimulation: any;
@@ -55,6 +58,10 @@ export interface UseGasEstimationReturn {
   needsApprovalOnAnyChain: boolean;
   allChainsApproved: boolean;
   canProceedWithDeposit: boolean;
+  // Allowance state helpers
+  hasAllowanceLoading: boolean;
+  hasAllowanceErrors: boolean;
+  allAllowancesLoaded: boolean;
 }
 
 function useChainGasEstimation(
@@ -69,7 +76,11 @@ function useChainGasEstimation(
   const amountWei = amount ? parseUnits(amount, 6) : 0n;
 
   // Check current allowance
-  const { data: currentAllowance } = useReadContract({
+  const {
+    data: currentAllowance,
+    isLoading: allowanceLoading,
+    error: allowanceError,
+  } = useReadContract({
     address: usdcAddress,
     abi: erc20Abi,
     functionName: "allowance",
@@ -78,11 +89,24 @@ function useChainGasEstimation(
     query: { enabled: enabled && !!address },
   });
 
+  // Determine allowance state
+  const allowanceState: "loading" | "loaded" | "error" = allowanceLoading
+    ? "loading"
+    : allowanceError
+    ? "error"
+    : "loaded";
+
+  // Only calculate approval logic when allowance is actually loaded
   const hasEnoughAllowance =
-    currentAllowance !== undefined && currentAllowance >= amountWei;
+    allowanceState === "loaded" &&
+    currentAllowance !== undefined &&
+    currentAllowance >= amountWei;
+
   const needsApproval =
     amountWei > 0n &&
-    (currentAllowance === undefined || currentAllowance < amountWei);
+    allowanceState === "loaded" &&
+    currentAllowance !== undefined &&
+    currentAllowance < amountWei;
 
   // Get native balance for gas affordability check
   const { data: nativeBalance } = useBalance({
@@ -156,6 +180,7 @@ function useChainGasEstimation(
           : null,
         hasEnoughAllowance: hasEnoughAllowance || false,
         needsApproval: needsApproval || false,
+        allowanceState,
         canAffordGas: false,
         nativeBalance: nativeBalanceValue,
         approvalSimulation: null,
@@ -167,11 +192,12 @@ function useChainGasEstimation(
     const approvalGasLimit = approvalSimulation?.request?.gas;
     const depositGasLimit = depositSimulation?.request?.gas;
 
+    const multiplier = 100n + GAS_BUFFER_PERCENT;
     const approvalGasWithBuffer = approvalGasLimit
-      ? (approvalGasLimit * 120n) / 100n
+      ? (approvalGasLimit * multiplier) / 100n
       : 0n;
     const depositGasWithBuffer = depositGasLimit
-      ? (depositGasLimit * 120n) / 100n
+      ? (depositGasLimit * multiplier) / 100n
       : 0n;
 
     const approvalCost = needsApproval ? approvalGasWithBuffer * gasPrice : 0n;
@@ -209,6 +235,7 @@ function useChainGasEstimation(
       error: null,
       hasEnoughAllowance: hasEnoughAllowance || false,
       needsApproval: needsApproval || false,
+      allowanceState,
       canAffordGas,
       nativeBalance: nativeBalanceValue,
       approvalSimulation: needsApproval ? approvalSimulation : null,
@@ -224,6 +251,7 @@ function useChainGasEstimation(
     depositError,
     hasEnoughAllowance,
     needsApproval,
+    allowanceState,
     nativeBalance,
     approvalSimulation,
     depositSimulation,
@@ -283,7 +311,20 @@ export function useGasEstimation({
     const allChainsApproved = gasEstimates.every(
       (estimate) => estimate.hasEnoughAllowance
     );
+
+    // Allowance state helpers
+    const hasAllowanceLoading = gasEstimates.some(
+      (estimate) => estimate.allowanceState === "loading"
+    );
+    const hasAllowanceErrors = gasEstimates.some(
+      (estimate) => estimate.allowanceState === "error"
+    );
+    const allAllowancesLoaded = gasEstimates.every(
+      (estimate) => estimate.allowanceState === "loaded"
+    );
+
     const canProceedWithDeposit =
+      allAllowancesLoaded &&
       allChainsApproved &&
       gasEstimates.every((estimate) => estimate.canAffordGas);
 
@@ -296,6 +337,9 @@ export function useGasEstimation({
       needsApprovalOnAnyChain,
       allChainsApproved,
       canProceedWithDeposit,
+      hasAllowanceLoading,
+      hasAllowanceErrors,
+      allAllowancesLoaded,
     };
   }, [chainAmountMap, ethSepoliaEstimate, seiTestnetEstimate]);
 }
