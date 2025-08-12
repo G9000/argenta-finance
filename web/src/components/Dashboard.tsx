@@ -53,6 +53,7 @@ export function Dashboard() {
     executeBatch,
     retryChain,
     cancel: cancelDeposit,
+    reset: resetDeposit,
     isExecuting,
     results: depositResults,
     error: depositError,
@@ -62,6 +63,7 @@ export function Dashboard() {
   const [showDepositProgress, setShowDepositProgress] = useState(false);
   const [depositCompletedSuccessfully, setDepositCompletedSuccessfully] =
     useState(false);
+  const [executeLocked, setExecuteLocked] = useState(false);
 
   // Auto-show progress when execution starts
   useEffect(() => {
@@ -75,6 +77,9 @@ export function Dashboard() {
   useEffect(() => {
     if (!isExecuting && depositResults.length > 0) {
       setDepositCompletedSuccessfully(!depositError);
+      // Lock execute only if there were issues
+      const hasFailures = depositResults.some((r) => r.status !== "success");
+      setExecuteLocked(hasFailures);
 
       if (!depositError) {
         const hasSuccessfulDeposits = depositResults.some(
@@ -108,6 +113,8 @@ export function Dashboard() {
     if (!amount) return;
 
     try {
+      // Ensure modal is visible when retrying
+      setShowDepositProgress(true);
       const result = await retryChain(chainId as SupportedChainId, amount);
       logger.debug(`Retry completed for chain ${chainId}:`, result);
 
@@ -186,6 +193,8 @@ export function Dashboard() {
   };
 
   const handleRetryAllFailed = async () => {
+    // Open modal to show progress
+    setShowDepositProgress(true);
     const failedOrPartial = depositResults.filter(
       (r) =>
         r.status === "failed" ||
@@ -208,6 +217,18 @@ export function Dashboard() {
         logger.error(`Retry-all: chain ${r.chainId} failed`, err);
       }
     }
+  };
+
+  const handleResetAll = () => {
+    // Cancel in-flight (if any) and clear local state
+    try {
+      cancelDeposit();
+    } catch {}
+    resetDeposit();
+    clearDepositAmounts();
+    setShowDepositProgress(false);
+    setDepositCompletedSuccessfully(false);
+    setExecuteLocked(false);
   };
 
   const handleWithdraw = () => {
@@ -238,9 +259,18 @@ export function Dashboard() {
                 onAmountChange={updateDepositAmount}
                 onMaxClick={setDepositMaxAmount}
                 onExecuteDeposit={handleUnifiedDeposit}
-                disabled={false}
-                isProcessing={isExecuting}
+                disabled={isExecuting || depositProgress.isRetrying}
+                isProcessing={isExecuting || depositProgress.isRetrying}
                 selectedChainId={selectedChainId}
+                canRetryAll={
+                  !isExecuting &&
+                  !depositProgress.isRetrying &&
+                  depositResults.length > 0 &&
+                  depositResults.some((r) => r.status !== "success")
+                }
+                onRetryAllFailed={handleRetryAllFailed}
+                onReset={handleResetAll}
+                executeLocked={executeLocked}
               />
             </div>
           ) : (
@@ -321,6 +351,8 @@ export function Dashboard() {
               setShowDepositProgress(false);
               setDepositCompletedSuccessfully(false);
               clearDepositAmounts();
+              // For all-success, allow next execute immediately
+              setExecuteLocked(false);
             }}
             onCancelBatch={() => {
               cancelDeposit();

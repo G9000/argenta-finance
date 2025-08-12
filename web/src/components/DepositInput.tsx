@@ -29,6 +29,10 @@ interface DepositInputProps {
   disabled?: boolean;
   isProcessing?: boolean;
   selectedChainId: SupportedChainId;
+  canRetryAll?: boolean;
+  onRetryAllFailed?: () => void;
+  onReset?: () => void;
+  executeLocked?: boolean;
 }
 
 export function DepositInput({
@@ -39,6 +43,10 @@ export function DepositInput({
   disabled = false,
   isProcessing = false,
   selectedChainId,
+  canRetryAll,
+  onRetryAllFailed,
+  onReset,
+  executeLocked = false,
 }: DepositInputProps) {
   const { address } = useAccount();
   const [isMultiChainMode, setIsMultiChainMode] = useState(false);
@@ -80,7 +88,11 @@ export function DepositInput({
   });
 
   const isButtonDisabled =
-    !hasAnyAmount || !batchState.isValid || disabled || isProcessing;
+    !hasAnyAmount ||
+    !batchState.isValid ||
+    disabled ||
+    isProcessing ||
+    executeLocked;
 
   const getTotalAmount = () => {
     try {
@@ -238,6 +250,42 @@ export function DepositInput({
         isProcessing={isProcessing}
         text={getButtonText()}
       />
+
+      {(() => {
+        const showReset = Boolean(
+          onReset &&
+            (hasAnyAmount || isProcessing || executeLocked || canRetryAll)
+        );
+        const showActions = Boolean(canRetryAll || showReset);
+        if (!showActions) return null;
+        return (
+          <div className="flex gap-3">
+            {canRetryAll && onRetryAllFailed && (
+              <button
+                onClick={onRetryAllFailed}
+                disabled={isProcessing}
+                className={cn(
+                  "flex-1 p-3 font-mono uppercase tracking-wide border whitespace-nowrap transition-colors",
+                  isProcessing
+                    ? "bg-gray-700 text-gray-300 cursor-not-allowed border-gray-700"
+                    : "bg-gradient-to-br from-teal-500/90 to-teal-600/90 border-teal-500/60 text-white hover:from-teal-500 hover:to-teal-600"
+                )}
+              >
+                {isProcessing ? "Retrying..." : "Retry All Failed"}
+              </button>
+            )}
+            {showReset && onReset && (
+              <button
+                onClick={onReset}
+                disabled={isProcessing}
+                className="flex-1 p-3 font-mono uppercase tracking-wide border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-colors"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {!address && (
         <div className="text-center text-gray-400 text-sm">

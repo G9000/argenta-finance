@@ -36,6 +36,7 @@ export interface UseBatchDepositReturn {
     amount: string
   ) => Promise<BatchDepositResult>;
   cancel: () => void;
+  reset: () => void;
   isExecuting: boolean;
   results: BatchDepositResult[];
   error: string | null;
@@ -356,11 +357,25 @@ export function useBatchDeposit(): UseBatchDepositReturn {
     serviceRef.current?.cancel();
   }, []);
 
+  const reset = useCallback(() => {
+    /**
+     * Resets local hook state, clearing results and progress.
+     */
+    setIsExecuting(false);
+    setResults([]);
+    setError(null);
+    setProgress({ completed: 0, total: 0, percentage: 0 });
+    setCurrentChain(undefined);
+    setCurrentOperation(undefined);
+    setRetryActiveChain(null);
+  }, []);
+
   return {
     service,
     executeBatch,
     retryChain,
     cancel,
+    reset,
     isExecuting,
     results,
     error,

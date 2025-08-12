@@ -49,8 +49,15 @@ export function BatchOperationProgress({
 
   const shouldShowMinimizeOptions =
     progress.isComplete && hasAnySuccessfulTransactions();
+
   const shouldShowExtraWarning =
     progress.isComplete && hasRiskyPartialProgress();
+
+  const isAllSuccess =
+    progress.isComplete &&
+    !progress.hasFailures &&
+    !!progress.batchCompletedSuccessfully;
+
   const stepLabel = (p: BatchDepositProgress) => {
     if (p.isComplete) return "";
     const chainName = p.currentChain ? getChainName(p.currentChain) : "";
@@ -143,7 +150,9 @@ export function BatchOperationProgress({
             <button
               onClick={
                 progress.isComplete
-                  ? shouldShowMinimizeOptions
+                  ? isAllSuccess
+                    ? onClose || onDismiss
+                    : shouldShowMinimizeOptions
                     ? onDismiss
                     : onClose || onDismiss
                   : onDismiss
@@ -151,7 +160,9 @@ export function BatchOperationProgress({
               className="text-gray-400 hover:text-white transition-colors p-1 flex-shrink-0"
               title={
                 progress.isComplete
-                  ? shouldShowMinimizeOptions
+                  ? isAllSuccess
+                    ? "Close"
+                    : shouldShowMinimizeOptions
                     ? "Minimize (transactions recorded)"
                     : "Close"
                   : "Minimize (operation continues in background)"
@@ -395,7 +406,14 @@ export function BatchOperationProgress({
 
         <div className="border-t border-white/10 p-4 sm:p-6">
           {progress.isComplete ? (
-            shouldShowExtraWarning ? (
+            isAllSuccess ? (
+              <button
+                onClick={onClose || onDismiss}
+                className="w-full p-3 font-mono uppercase tracking-wide bg-gradient-to-br from-teal-500/90 to-teal-600/90 border border-white/10 text-white hover:from-teal-500 hover:to-teal-600 focus-visible:outline-none focus-visible:bg-teal-600/20 transition-colors text-sm"
+              >
+                Close
+              </button>
+            ) : shouldShowExtraWarning ? (
               <div className="space-y-3">
                 <div className="p-3 border border-yellow-500/30 bg-yellow-500/10 text-yellow-200 text-xs font-mono uppercase tracking-wide text-center">
                   ⚠ Transactions were submitted. Minimize to keep progress.
