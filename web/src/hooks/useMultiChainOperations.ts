@@ -158,7 +158,7 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
       type: OperationType,
       txHash: Hash | null = null
     ) => {
-      setState((prev) => ({
+      safeSetState((prev) => ({
         ...prev,
         chainOperations: {
           ...prev.chainOperations,
@@ -173,7 +173,7 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
         },
       }));
     },
-    []
+    [safeSetState]
   );
 
   const setChainError = useCallback(
@@ -182,7 +182,7 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
       error: string,
       isUserCancellation: boolean = false
     ) => {
-      setState((prev) => ({
+      safeSetState((prev) => ({
         ...prev,
         chainOperations: {
           ...prev.chainOperations,
@@ -195,22 +195,12 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
         },
       }));
     },
-    []
+    [safeSetState]
   );
-
-  const resetChainState = useCallback((chainId: SupportedChainId) => {
-    setState((prev) => ({
-      ...prev,
-      chainOperations: {
-        ...prev.chainOperations,
-        [chainId]: { ...DEFAULT_CHAIN_STATE },
-      },
-    }));
-  }, []);
 
   const storeTransactionHash = useCallback(
     (chainId: SupportedChainId, type: OperationType, txHash: Hash) => {
-      setState((prev) => ({
+      safeSetState((prev) => ({
         ...prev,
         chainTransactions: {
           ...prev.chainTransactions,
@@ -221,12 +211,12 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
         },
       }));
     },
-    []
+    [safeSetState]
   );
 
   const storeConfirmedTransactionHash = useCallback(
     (chainId: SupportedChainId, type: OperationType, txHash: Hash) => {
-      setState((prev) => ({
+      safeSetState((prev) => ({
         ...prev,
         chainTransactions: {
           ...prev.chainTransactions,
@@ -239,7 +229,7 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
         },
       }));
     },
-    []
+    [safeSetState]
   );
 
   const ensureChainSwitch = useCallback(
@@ -260,7 +250,7 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
       amount: string
     ): Promise<Hash> => {
       // mark in-flight
-      setState((prev) => ({ ...prev, inFlightChainId: chainId }));
+      safeSetState((prev) => ({ ...prev, inFlightChainId: chainId }));
 
       if (!address) {
         console.error(`[executeChainOperation] ❌ Wallet not connected!`);
@@ -308,7 +298,7 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
           chain: chainConfig,
         });
 
-        setState((prev) => ({
+        safeSetState((prev) => ({
           ...prev,
           chainOperations: {
             ...prev.chainOperations,
@@ -328,7 +318,7 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
         });
 
         if (receipt.status !== "success") {
-          setState((prev) => ({
+          safeSetState((prev) => ({
             ...prev,
             chainTransactions: {
               ...prev.chainTransactions,
@@ -339,17 +329,16 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
                   : { depositTxHash: undefined }),
               },
             },
+            inFlightChainId: null,
           }));
           setChainError(chainId, "Transaction reverted", false);
-          setState((prev) => ({ ...prev, inFlightChainId: null }));
           return Promise.reject(new Error("Transaction reverted"));
         }
 
-        // Mark confirmed tx
         storeConfirmedTransactionHash(chainId, operationType, hash);
 
         // Set completed state instead of resetting
-        setState((prev) => ({
+        safeSetState((prev) => ({
           ...prev,
           chainOperations: {
             ...prev.chainOperations,
@@ -382,7 +371,7 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
           : `${operationType} failed`;
 
         setChainError(chainId, errorMessage, isUserCancel);
-        setState((prev) => ({
+        safeSetState((prev) => ({
           ...prev,
           chainOperations: {
             ...prev.chainOperations,
@@ -401,8 +390,10 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
       ensureChainSwitch,
       setChainOperationState,
       storeTransactionHash,
-      resetChainState,
+      storeConfirmedTransactionHash,
       setChainError,
+      safeSetState,
+      queryClient,
     ]
   );
 
@@ -428,7 +419,7 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
       }
 
       // Clear error before retrying
-      setState((prev) => ({
+      safeSetState((prev) => ({
         ...prev,
         chainOperations: {
           ...prev.chainOperations,
@@ -448,23 +439,26 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
 
       return executeChainOperation(chainId, operationType, amount);
     },
-    [getChainState, getChainTransactions, executeChainOperation]
+    [getChainState, getChainTransactions, executeChainOperation, safeSetState]
   );
 
   // Queue operations
-  const enqueueUnique = useCallback((op: ChainOperation) => {
-    setState((prev) => {
-      const exists = prev.operationQueue.some(
-        (o) =>
-          o.chainId === op.chainId &&
-          o.type === op.type &&
-          o.amount === op.amount
-      );
-      return exists
-        ? prev
-        : { ...prev, operationQueue: [...prev.operationQueue, op] };
-    });
-  }, []);
+  const enqueueUnique = useCallback(
+    (op: ChainOperation) => {
+      safeSetState((prev) => {
+        const exists = prev.operationQueue.some(
+          (o) =>
+            o.chainId === op.chainId &&
+            o.type === op.type &&
+            o.amount === op.amount
+        );
+        return exists
+          ? prev
+          : { ...prev, operationQueue: [...prev.operationQueue, op] };
+      });
+    },
+    [safeSetState]
+  );
 
   const queueApproval = useCallback(
     (chainId: SupportedChainId, amount: string) => {
@@ -539,14 +533,19 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
 
   const processQueue = useCallback(async () => {
     if (processingRef.current) return;
-    if (state.operationQueue.length === 0) return;
 
-    processingRef.current = true;
-    safeSetState((p) => ({ ...p, isProcessingQueue: true }));
+    // Get current state to avoid race conditions
+    let currentQueue: ChainOperation[] = [];
+    safeSetState((p) => {
+      currentQueue = [...p.operationQueue];
+      if (currentQueue.length === 0) return p;
+      processingRef.current = true;
+      return { ...p, isProcessingQueue: true };
+    });
 
-    const queueToProcess = [...state.operationQueue].sort(
-      (a, b) => a.priority - b.priority
-    );
+    if (currentQueue.length === 0) return;
+
+    const queueToProcess = currentQueue.sort((a, b) => a.priority - b.priority);
 
     try {
       const chainsToSkip = new Set<SupportedChainId>();
@@ -589,44 +588,50 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
   }, [executeChainOperation, state.operationQueue, safeSetState]);
 
   // Auto-start processing whenever items appear in the queue and we're not processing
+  const processQueueRef = useRef(processQueue);
+  processQueueRef.current = processQueue;
+
   useEffect(() => {
     if (!state.isProcessingQueue && state.operationQueue.length > 0) {
       // Fire and forget; internal guards prevent double-processing
-      void processQueue();
+      void processQueueRef.current();
     }
-  }, [state.isProcessingQueue, state.operationQueue.length, processQueue]);
+  }, [state.isProcessingQueue, state.operationQueue.length]);
 
   const clearQueue = useCallback(() => {
-    setState((prev) => ({ ...prev, operationQueue: [] }));
-  }, []);
+    safeSetState((prev) => ({ ...prev, operationQueue: [] }));
+  }, [safeSetState]);
 
   const cancelQueue = useCallback(() => {
     // Clear only the pending queue; keep current isProcessing flag intact so
     // the active operation can finish naturally. This enables the user to
     // cancel the rest while allowing retry later.
-    setState((prev) => ({ ...prev, operationQueue: [] }));
-  }, []);
+    safeSetState((prev) => ({ ...prev, operationQueue: [] }));
+  }, [safeSetState]);
 
-  const clearError = useCallback((chainId: SupportedChainId) => {
-    setState((prev) => ({
-      ...prev,
-      chainOperations: {
-        ...prev.chainOperations,
-        [chainId]: {
-          ...prev.chainOperations[chainId],
-          error: null,
-          isUserCancellation: false,
+  const clearError = useCallback(
+    (chainId: SupportedChainId) => {
+      safeSetState((prev) => ({
+        ...prev,
+        chainOperations: {
+          ...prev.chainOperations,
+          [chainId]: {
+            ...prev.chainOperations[chainId],
+            error: null,
+            isUserCancellation: false,
+          },
         },
-      },
-    }));
-  }, []);
+      }));
+    },
+    [safeSetState]
+  );
 
   const clearAllErrors = useCallback(() => {
-    setState((prev) => ({
+    safeSetState((prev) => ({
       ...prev,
       chainOperations: Object.keys(prev.chainOperations).reduce(
         (acc, chainIdStr) => {
-          const chainId = chainIdStr as unknown as SupportedChainId;
+          const chainId = Number(chainIdStr) as SupportedChainId;
           acc[chainId] = {
             ...prev.chainOperations[chainId],
             error: null,
@@ -637,7 +642,7 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
         {} as Record<SupportedChainId, ChainOperationState>
       ),
     }));
-  }, []);
+  }, [safeSetState]);
 
   return {
     // Single chain operations (backward compatible)
