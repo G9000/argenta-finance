@@ -1,8 +1,8 @@
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { injectedWallet, metaMaskWallet } from "@rainbow-me/rainbowkit/wallets";
-import { sepolia, seiTestnet } from "viem/chains";
 import { http } from "viem";
 import type { Config } from "wagmi";
+import { SUPPORTED_CHAIN_CONFIGS, SupportedChainId } from "./constant/chains";
 
 const walletConnectProjectId =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
@@ -13,13 +13,13 @@ if (!walletConnectProjectId) {
   );
 }
 
-const config = getDefaultConfig({
+export const wagmiConfig = getDefaultConfig({
   appName: "Argenta",
   projectId: walletConnectProjectId,
-  chains: [sepolia, seiTestnet],
+  chains: SUPPORTED_CHAIN_CONFIGS,
   transports: {
-    [sepolia.id]: http(),
-    [seiTestnet.id]: http(),
+    [SupportedChainId.ETH_SEPOLIA]: http(),
+    [SupportedChainId.SEI_TESTNET]: http(),
   },
   wallets: [
     {
@@ -33,7 +33,4 @@ const config = getDefaultConfig({
     },
   ],
   ssr: true,
-});
-
-// This kinda hacky tbh
-export const wagmiConfig = config as Config;
+}) as Config;

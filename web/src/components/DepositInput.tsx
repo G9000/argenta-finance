@@ -8,8 +8,8 @@ import {
   SupportedChainId,
   SUPPORTED_CHAINS,
   getChainName,
-  USDC_DECIMALS,
-} from "@/constant/contracts";
+} from "@/constant/chains";
+import { getUsdc } from "@/constant/tokens";
 import { useChainBalances } from "@/hooks";
 import {
   ChainInput,
@@ -99,12 +99,17 @@ export function DepositInput({
       const total = Array.from(activeChains)
         .map((chainId) => batchState.inputs[chainId] || "")
         .filter((amount) => amount && Number(amount) > 0)
-        .reduce((sum, amount) => {
-          const amountInWei = parseUnits(amount, USDC_DECIMALS);
+        .reduce((sum, amount, index) => {
+          const chainId = Array.from(activeChains)[index];
+          const usdcDecimals = getUsdc(chainId).decimals;
+          const amountInWei = parseUnits(amount, usdcDecimals);
           return sum + amountInWei;
         }, 0n);
 
-      return formatUnits(total, USDC_DECIMALS);
+      // Use decimals from the first active chain (all USDC tokens should have same decimals)
+      const firstChain = Array.from(activeChains)[0];
+      const usdcDecimals = getUsdc(firstChain).decimals;
+      return formatUnits(total, usdcDecimals);
     } catch {
       return "0";
     }

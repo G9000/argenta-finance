@@ -4,8 +4,6 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { getTokenLogo } from "@/lib/tokens";
 import { formatBalance } from "@/lib/format";
-import { USDC_DECIMALS } from "@/constant/contracts";
-
 interface AmountInputProps {
   value: string;
   onChange: (value: string) => void;
@@ -22,6 +20,7 @@ interface AmountInputProps {
   onMaxClick?: () => void;
   showBalance?: boolean;
   showMaxButton?: boolean;
+  tokenDecimals?: number;
 }
 
 export function AmountInput({
@@ -40,9 +39,10 @@ export function AmountInput({
   onMaxClick,
   showBalance = false,
   showMaxButton = false,
+  tokenDecimals = 6,
 }: AmountInputProps) {
   const stepValue =
-    USDC_DECIMALS > 0 ? `0.${"0".repeat(USDC_DECIMALS - 1)}1` : "1";
+    tokenDecimals > 0 ? `0.${"0".repeat(tokenDecimals - 1)}1` : "1";
 
   return (
     <div className={cn("space-y-2", className)}>

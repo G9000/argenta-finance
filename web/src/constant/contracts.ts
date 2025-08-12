@@ -1,26 +1,5 @@
 import type { Address } from "viem";
-import { seiTestnet, sepolia } from "viem/chains";
-
-export enum SupportedChainId {
-  ETH_SEPOLIA = 11155111,
-  SEI_TESTNET = 1328,
-}
-
-export const SUPPORTED_CHAINS = [
-  SupportedChainId.ETH_SEPOLIA,
-  SupportedChainId.SEI_TESTNET,
-] as const;
-
-export function isSupportedChainId(
-  chainId: number
-): chainId is SupportedChainId {
-  return SUPPORTED_CHAINS.includes(chainId as SupportedChainId);
-}
-
-export const CHAIN_TO_CHAIN_NAME = {
-  [SupportedChainId.ETH_SEPOLIA]: sepolia.name,
-  [SupportedChainId.SEI_TESTNET]: seiTestnet.name,
-} as const satisfies Record<SupportedChainId, string>;
+import { SupportedChainId } from "./chains";
 
 export const USDC_ADDRESSES = {
   [SupportedChainId.ETH_SEPOLIA]: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
@@ -37,30 +16,12 @@ export const VAULT_DEPLOYMENT_BLOCKS = {
   [SupportedChainId.SEI_TESTNET]: 137259626,
 } as const satisfies Record<SupportedChainId, number>;
 
-export const BLOCK_EXPLORERS = {
-  [SupportedChainId.ETH_SEPOLIA]:
-    sepolia.blockExplorers?.default?.url || "https://sepolia.etherscan.io",
-  [SupportedChainId.SEI_TESTNET]:
-    seiTestnet.blockExplorers?.default?.url || "https://seitrace.com",
-} as const satisfies Record<SupportedChainId, string>;
-
-export const USDC_DECIMALS = 6 as const;
-export const ETH_DECIMALS = 18 as const;
-
 export function getUsdcAddress(chainId: SupportedChainId): Address {
   return USDC_ADDRESSES[chainId];
 }
 
 export function getVaultAddress(chainId: SupportedChainId): Address {
   return VAULT_ADDRESSES[chainId];
-}
-
-export function getChainName(chainId: SupportedChainId): string {
-  return CHAIN_TO_CHAIN_NAME[chainId];
-}
-
-export function getBlockExplorerUrl(chainId: SupportedChainId): string {
-  return BLOCK_EXPLORERS[chainId];
 }
 
 export function getVaultDeploymentBlock(chainId: SupportedChainId): number {

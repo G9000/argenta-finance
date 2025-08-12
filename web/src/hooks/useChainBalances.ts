@@ -1,11 +1,8 @@
 import { useAccount, useReadContracts } from "wagmi";
 import { erc20Abi } from "viem";
 import { simpleVaultAbi } from "@/generated/wagmi";
-import {
-  type SupportedChainId,
-  getUsdcAddress,
-  getVaultAddress,
-} from "@/constant/contracts";
+import { type SupportedChainId } from "@/constant/chains";
+import { getUsdcAddress, getVaultAddress } from "@/constant/contracts";
 
 interface UseChainBalancesParams {
   chainId: SupportedChainId;

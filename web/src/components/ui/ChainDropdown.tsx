@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { getChainName } from "@/constant/contracts";
+import { getChainName } from "@/constant/chains";
 import { getChainLogo } from "@/lib/tokens";
-import type { SupportedChainId } from "@/constant/contracts";
+import type { SupportedChainId } from "@/constant/chains";
 
 interface ChainDropdownProps {
   availableChains: SupportedChainId[];

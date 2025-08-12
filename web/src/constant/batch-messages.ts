@@ -1,4 +1,4 @@
-import type { SupportedChainId } from "@/constant/contracts";
+import type { SupportedChainId } from "@/constant/chains";
 
 export const BATCH_MESSAGES = {
   ERRORS: {

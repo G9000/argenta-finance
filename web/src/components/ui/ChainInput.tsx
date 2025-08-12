@@ -2,14 +2,14 @@
 
 import { cn } from "@/lib/utils";
 import { getChainLogo } from "@/lib/tokens";
-import { getChainName } from "@/constant/contracts";
+import { getChainName } from "@/constant/chains";
 import {
   CardContainer,
   ChainHeader,
   AmountInput,
   ValidationMessages,
 } from "@/components/ui";
-import type { SupportedChainId } from "@/constant/contracts";
+import type { SupportedChainId } from "@/constant/chains";
 
 interface ChainInputProps {
   chainId: SupportedChainId;

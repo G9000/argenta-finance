@@ -7,7 +7,7 @@ import { useEnsAvatar } from "@/hooks";
 import { cn } from "@/lib/utils";
 import { isAddress } from "viem";
 import { normalize } from "viem/ens";
-import { SupportedChainId } from "@/constant/contracts";
+import { SupportedChainId } from "@/constant/chains";
 
 interface EnsAvatarProps {
   address: string;

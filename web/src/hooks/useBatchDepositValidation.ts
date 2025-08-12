@@ -1,10 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { parseUnits } from "viem";
-import {
-  SupportedChainId,
-  SUPPORTED_CHAINS,
-  USDC_DECIMALS,
-} from "@/constant/contracts";
+import { SupportedChainId, SUPPORTED_CHAINS } from "@/constant/chains";
 import { useChainBalances } from "./useChainBalances";
 import { CommonValidations } from "@/lib/validators";
 import { VALIDATION_MESSAGES } from "@/constant/operation-constants";
@@ -60,9 +56,7 @@ export function useBatchDepositValidation({
     (chainId: SupportedChainId) => {
       const balance = chainBalances[chainId];
       if (balance.data) {
-        const maxAmount = (
-          Number(balance.data) / Math.pow(10, USDC_DECIMALS)
-        ).toString();
+        const maxAmount = (Number(balance.data) / Math.pow(10, 6)).toString();
         updateAmount(chainId, maxAmount);
       }
     },
@@ -114,10 +108,10 @@ export function useBatchDepositValidation({
         );
       } else if (chainBalance.data !== undefined) {
         try {
-          const amountInWei = parseUnits(amount, USDC_DECIMALS);
+          const amountInWei = parseUnits(amount, 6);
           if (amountInWei > chainBalance.data) {
             const maxAmount = (
-              Number(chainBalance.data) / Math.pow(10, USDC_DECIMALS)
+              Number(chainBalance.data) / Math.pow(10, 6)
             ).toFixed(6);
             errors[chainId].push(
               VALIDATION_MESSAGES.ERRORS.INSUFFICIENT_WALLET_BALANCE(
@@ -155,13 +149,13 @@ export function useBatchDepositValidation({
       const total = SUPPORTED_CHAINS.reduce((sum, chainId) => {
         const amount = inputs[chainId];
         if (amount && Number(amount) > 0 && errors[chainId].length === 0) {
-          const amountInWei = parseUnits(amount, USDC_DECIMALS);
+          const amountInWei = parseUnits(amount, 6);
           return sum + amountInWei;
         }
         return sum;
       }, 0n);
 
-      totalAmount = (Number(total) / Math.pow(10, USDC_DECIMALS)).toString();
+      totalAmount = (Number(total) / Math.pow(10, 6)).toString();
     } catch {
       totalAmount = "0";
     }

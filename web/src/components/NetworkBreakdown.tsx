@@ -1,6 +1,6 @@
 "use client";
 
-import { SupportedChainId, getChainName } from "@/constant/contracts";
+import { SupportedChainId, getChainName } from "@/constant/chains";
 import { NetworkBalanceCard } from "./NetworkBalanceCard";
 
 export function NetworkBreakdown() {

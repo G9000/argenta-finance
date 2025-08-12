@@ -8,7 +8,7 @@ import {
   waitForTransactionReceipt,
   getAccount,
 } from "@wagmi/core";
-import { SupportedChainId } from "@/constant/contracts";
+import { SupportedChainId } from "@/constant/chains";
 import { simpleVaultAbi } from "@/generated/wagmi";
 import { wagmiConfig } from "@/wagmi";
 import {
@@ -285,7 +285,7 @@ export function createBatchDepositService(
     isRetry = false
   ): Promise<BatchDepositResult> {
     const { chainId, amount } = chainAmount;
-    const amountWei = parseAmountToBigInt(amount);
+    const amountWei = parseAmountToBigInt(amount, chainId);
 
     const result: BatchDepositResult = {
       chainId,
@@ -491,7 +491,7 @@ export function createBatchDepositService(
       const chainAmount: ChainAmount = {
         chainId,
         amount,
-        amountWei: parseAmountToBigInt(amount),
+        amountWei: parseAmountToBigInt(amount, chainId),
       };
 
       const result = await executeChainDeposit(chainAmount, true);

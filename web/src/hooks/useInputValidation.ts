@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useAccount, useBalance } from "wagmi";
-import { USDC_DECIMALS } from "@/constant/contracts";
 import { OperationType, SupportedTokenSymbol } from "@/types/ui-state";
 import { VALIDATION_CONFIG } from "@/constant/operation-constants";
 import { validateInput, ValidationResult } from "@/lib/validation";
@@ -26,7 +25,7 @@ export function useInputValidation({
   chainId,
   token = {
     symbol: "USDC" as const,
-    decimals: USDC_DECIMALS,
+    decimals: 6,
     minAmount: VALIDATION_CONFIG.MIN_AMOUNTS.USDC,
   },
 }: UseInputValidationProps): ValidationResult {

@@ -1,6 +1,6 @@
 "use client";
 
-import { getChainName, getBlockExplorerUrl } from "@/constant/contracts";
+import { getChainName, getBlockExplorerUrl } from "@/constant/chains";
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getChainLogo, getTokenLogo } from "@/lib/tokens";

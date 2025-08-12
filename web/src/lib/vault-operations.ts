@@ -5,12 +5,9 @@ import {
   type Address,
   type Hash,
 } from "viem";
-import {
-  SupportedChainId,
-  USDC_DECIMALS,
-  getUsdcAddress,
-  getVaultAddress,
-} from "@/constant/contracts";
+import { SupportedChainId } from "@/constant/chains";
+import { getUsdcAddress, getVaultAddress } from "@/constant/contracts";
+import { getToken } from "@/constant/tokens";
 import { createComponentLogger } from "@/lib/logger";
 import { CommonValidations, validateOrThrow } from "@/lib/validators";
 import { BATCH_MESSAGES } from "@/constant/batch-messages";
@@ -142,13 +139,21 @@ export function createBatchError(
 /**
  * Parse amount string to bigint
  */
-export function parseAmountToBigInt(amount: string): bigint {
+export function parseAmountToBigInt(
+  amount: string,
+  chainId: SupportedChainId
+): bigint {
+  const usdcToken = getToken(chainId, "USDC");
+  if (!usdcToken) {
+    throw new Error(`USDC token not found for chain ${chainId}`);
+  }
+
   validateOrThrow(
-    CommonValidations.tokenAmountWithMin(amount, USDC_DECIMALS, "USDC"),
+    CommonValidations.tokenAmountWithMin(amount, usdcToken.decimals, "USDC"),
     "Amount validation failed"
   );
 
-  return parseUnits(amount.trim(), USDC_DECIMALS);
+  return parseUnits(amount.trim(), usdcToken.decimals);
 }
 
 /**
@@ -364,7 +369,7 @@ export function prepareChainOperation(
   chainId: SupportedChainId,
   amount: string
 ): ChainOperation {
-  const amountWei = parseAmountToBigInt(amount);
+  const amountWei = parseAmountToBigInt(amount, chainId);
 
   const { usdcAddress, vaultAddress } = validateChainOperation(chainId);
 
@@ -466,10 +471,7 @@ export function calculateProgress(
 /**
  * Format amount for display
  */
-export function formatAmount(
-  amount: bigint,
-  decimals: number = USDC_DECIMALS
-): string {
+export function formatAmount(amount: bigint, decimals: number = 6): string {
   const divisor = BigInt(10) ** BigInt(decimals);
   const wholePart = amount / divisor;
   const fractionalPart = amount % divisor;
@@ -500,13 +502,23 @@ export function validateChainAmount(
   isValid: boolean;
   error?: string;
   amountWei?: bigint;
+  errorType?: BatchErrorType;
 } {
   try {
     validateChainOperation(chainId);
 
+    const usdcToken = getToken(chainId, "USDC");
+    if (!usdcToken) {
+      return {
+        isValid: false,
+        error: `USDC token not found for chain ${chainId}`,
+        errorType: "VALIDATION_ERROR" as BatchErrorType,
+      };
+    }
+
     const amountValidation = CommonValidations.tokenAmountWithMin(
       amount,
-      USDC_DECIMALS,
+      usdcToken.decimals,
       "USDC"
     );
 
@@ -517,7 +529,7 @@ export function validateChainAmount(
       };
     }
 
-    const amountWei = parseUnits(amount.trim(), USDC_DECIMALS);
+    const amountWei = parseUnits(amount.trim(), usdcToken.decimals);
 
     const bigIntValidation = CommonValidations.bigIntAmount(amountWei);
     if (!bigIntValidation.isValid) {

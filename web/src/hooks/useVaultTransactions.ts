@@ -1,12 +1,11 @@
 import { useAccount, useChainId, useBlockNumber, usePublicClient } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
+import { SupportedChainId } from "@/constant/chains";
 import {
   getUsdcAddress,
   getVaultAddress,
   getVaultDeploymentBlock,
-  SupportedChainId,
 } from "@/constant/contracts";
-import { SEI_TESTNET_CHAIN_ID } from "@/constant/chains";
 import { formatUnits, parseAbiItem } from "viem";
 
 interface UseVaultTransactionsOptions {
@@ -59,7 +58,7 @@ export function useVaultTransactions(options?: UseVaultTransactionsOptions) {
 
       let allLogs: any[] = [];
 
-      if (chainId === SEI_TESTNET_CHAIN_ID) {
+      if (chainId === SupportedChainId.SEI_TESTNET) {
         const CHUNK_SIZE = 1800;
         const MAX_ITERATIONS = 10;
         let searchBlock = currentBlock;

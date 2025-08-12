@@ -5,7 +5,7 @@ import { useEnsName } from "@/hooks";
 import { EnsAvatar } from "./EnsAvatar";
 import { cn } from "@/lib/utils";
 import { isAddress } from "viem";
-import { SupportedChainId } from "@/constant/contracts";
+import { SupportedChainId } from "@/constant/chains";
 
 interface AddressDisplayProps {
   address: string;

@@ -1,11 +1,10 @@
 import React from "react";
 import { TransactionStatusIcon } from "./TransactionStatusIcon";
 import {
-  getChainName,
   getBlockExplorerUrl,
   SupportedChainId,
-} from "@/constant/contracts";
-import { SEPOLIA_CHAIN_ID, SEI_TESTNET_CHAIN_ID } from "@/constant/chains";
+  getChainName,
+} from "@/constant/chains";
 import { getTokenLogo, getChainLogo } from "@/lib/tokens";
 import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
@@ -39,7 +38,10 @@ function formatTimeAgo(timestamp: number): string {
 }
 
 function getExplorerUrl(chainId: number, hash: string): string | undefined {
-  if (chainId === SEPOLIA_CHAIN_ID || chainId === SEI_TESTNET_CHAIN_ID) {
+  if (
+    chainId === SupportedChainId.ETH_SEPOLIA ||
+    chainId === SupportedChainId.SEI_TESTNET
+  ) {
     const baseUrl = getBlockExplorerUrl(chainId as SupportedChainId);
     return `${baseUrl}/tx/${hash}`;
   }
@@ -58,7 +60,8 @@ export function TransactionItem({
 }: TransactionItemProps) {
   const explorerUrl = getExplorerUrl(chainId, hash);
   const chainName =
-    chainId === SEPOLIA_CHAIN_ID || chainId === SEI_TESTNET_CHAIN_ID
+    chainId === SupportedChainId.ETH_SEPOLIA ||
+    chainId === SupportedChainId.SEI_TESTNET
       ? getChainName(chainId as SupportedChainId)
       : `Chain ${chainId}`;
   const tokenLogo = tokenSymbol ? getTokenLogo(tokenSymbol) : "";

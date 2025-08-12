@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useChainBalances } from "./useChainBalances";
-import { SupportedChainId } from "@/constant/contracts";
+import { SupportedChainId } from "@/constant/chains";
 
 export function usePortfolioTotals() {
   const sepoliaBalances = useChainBalances({

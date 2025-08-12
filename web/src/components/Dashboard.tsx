@@ -8,7 +8,7 @@ import {
   isSupportedChainId,
   SupportedChainId,
   SUPPORTED_CHAINS,
-} from "@/constant/contracts";
+} from "@/constant/chains";
 import { parseAmountToBigInt } from "@/lib/vault-operations";
 import { useBatchDepositValidation } from "@/hooks";
 import { useBatchDeposit } from "@/hooks/useBatchDeposit";
@@ -159,7 +159,7 @@ export function Dashboard() {
     setLastAttemptedAmounts((prev) => {
       const next = { ...prev };
       for (const { chainId, amount } of validAmounts) {
-        next[chainId] = amount;
+        next[chainId as SupportedChainId] = amount;
       }
       return next;
     });
@@ -177,7 +177,7 @@ export function Dashboard() {
 
     for (const { chainId, amount } of validAmounts) {
       try {
-        const amountWei = parseAmountToBigInt(amount);
+        const amountWei = parseAmountToBigInt(amount, chainId);
         logger.debug(
           `Parsed amount for chain ${chainId}: ${amount} -> ${amountWei.toString()} wei`
         );
