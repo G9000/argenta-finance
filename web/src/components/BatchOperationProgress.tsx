@@ -13,18 +13,44 @@ import type {
 interface BatchOperationProgressProps {
   progress: BatchDepositProgress;
   onRetryChain?: (chainId: number) => void;
+  onRetryAllFailed?: () => void;
   onSkipChain?: (chainId: number) => void;
   onCancelBatch?: () => void;
   onDismiss?: () => void;
+  onClose?: () => void;
 }
 
 export function BatchOperationProgress({
   progress,
   onRetryChain,
+  onRetryAllFailed,
   onSkipChain,
   onCancelBatch,
   onDismiss,
+  onClose,
 }: BatchOperationProgressProps) {
+  const hasAnySuccessfulTransactions = () => {
+    return progress.chainStatuses.some(
+      (status) =>
+        status.approveTxHash ||
+        status.depositTxHash ||
+        status.status === "completed" ||
+        status.status === "partial"
+    );
+  };
+
+  const hasRiskyPartialProgress = () => {
+    return progress.chainStatuses.some(
+      (status) =>
+        (status.approveTxHash && status.status !== "completed") ||
+        status.status === "partial"
+    );
+  };
+
+  const shouldShowMinimizeOptions =
+    progress.isComplete && hasAnySuccessfulTransactions();
+  const shouldShowExtraWarning =
+    progress.isComplete && hasRiskyPartialProgress();
   const stepLabel = (p: BatchDepositProgress) => {
     if (p.isComplete) return "";
     const chainName = p.currentChain ? getChainName(p.currentChain) : "";
@@ -115,11 +141,19 @@ export function BatchOperationProgress({
               </div>
             </div>
             <button
-              onClick={onDismiss}
+              onClick={
+                progress.isComplete
+                  ? shouldShowMinimizeOptions
+                    ? onDismiss
+                    : onClose || onDismiss
+                  : onDismiss
+              }
               className="text-gray-400 hover:text-white transition-colors p-1 flex-shrink-0"
               title={
                 progress.isComplete
-                  ? "Close"
+                  ? shouldShowMinimizeOptions
+                    ? "Minimize (transactions recorded)"
+                    : "Close"
                   : "Minimize (operation continues in background)"
               }
             >
@@ -361,12 +395,71 @@ export function BatchOperationProgress({
 
         <div className="border-t border-white/10 p-4 sm:p-6">
           {progress.isComplete ? (
-            <button
-              onClick={onDismiss}
-              className="w-full p-3 font-mono uppercase tracking-wide bg-gradient-to-br from-teal-500/90 to-teal-600/90 border border-white/10 text-white hover:from-teal-500 hover:to-teal-600 focus-visible:outline-none focus-visible:bg-teal-600/20 transition-colors text-sm"
-            >
-              Close
-            </button>
+            shouldShowExtraWarning ? (
+              <div className="space-y-3">
+                <div className="p-3 border border-yellow-500/30 bg-yellow-500/10 text-yellow-200 text-xs font-mono uppercase tracking-wide text-center">
+                  ⚠ Transactions were submitted. Minimize to keep progress.
+                </div>
+                {progress.hasFailures && onRetryAllFailed && (
+                  <button
+                    onClick={onRetryAllFailed}
+                    disabled={!!progress.isRetrying}
+                    className={cn(
+                      "w-full p-3 font-mono uppercase tracking-wide border whitespace-nowrap transition-colors",
+                      progress.isRetrying
+                        ? "bg-gray-600 text-gray-300 cursor-not-allowed border-gray-600"
+                        : "bg-gradient-to-br from-teal-500/90 to-teal-600/90 border-teal-500/60 text-white hover:from-teal-500 hover:to-teal-600"
+                    )}
+                  >
+                    {progress.isRetrying ? "Retrying..." : "Retry All Failed"}
+                  </button>
+                )}
+                <button
+                  onClick={onDismiss}
+                  className="w-full p-3 font-mono uppercase tracking-wide bg-gradient-to-br from-teal-500/90 to-teal-600/90 border border-white/10 text-white hover:from-teal-500 hover:to-teal-600 focus-visible:outline-none focus-visible:bg-teal-600/20 transition-colors text-sm"
+                >
+                  Minimize (Keep Progress)
+                </button>
+              </div>
+            ) : shouldShowMinimizeOptions ? (
+              <div className="space-y-3">
+                {progress.hasFailures && onRetryAllFailed && (
+                  <button
+                    onClick={onRetryAllFailed}
+                    disabled={!!progress.isRetrying}
+                    className={cn(
+                      "w-full p-3 font-mono uppercase tracking-wide border whitespace-nowrap transition-colors",
+                      progress.isRetrying
+                        ? "bg-gray-600 text-gray-300 cursor-not-allowed border-gray-600"
+                        : "bg-gradient-to-br from-teal-500/90 to-teal-600/90 border-teal-500/60 text-white hover:from-teal-500 hover:to-teal-600"
+                    )}
+                  >
+                    {progress.isRetrying ? "Retrying..." : "Retry All Failed"}
+                  </button>
+                )}
+                <button
+                  onClick={onDismiss}
+                  className="w-full p-3 font-mono uppercase tracking-wide bg-gradient-to-br from-teal-500/90 to-teal-600/90 border border-white/10 text-white hover:from-teal-500 hover:to-teal-600 focus-visible:outline-none focus-visible:bg-teal-600/20 transition-colors text-sm"
+                >
+                  Minimize (Keep Progress)
+                </button>
+                {onClose && (
+                  <button
+                    onClick={onClose}
+                    className="w-full p-2 font-mono uppercase tracking-wide border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:border-red-500/50 transition-colors text-xs"
+                  >
+                    Close & Lose Progress
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={onClose || onDismiss}
+                className="w-full p-3 font-mono uppercase tracking-wide bg-gradient-to-br from-teal-500/90 to-teal-600/90 border border-white/10 text-white hover:from-teal-500 hover:to-teal-600 focus-visible:outline-none focus-visible:bg-teal-600/20 transition-colors text-sm"
+              >
+                Close
+              </button>
+            )
           ) : (
             <div className="space-y-3">
               <div className="flex flex-col sm:flex-row gap-3">

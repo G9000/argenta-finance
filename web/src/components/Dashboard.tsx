@@ -9,13 +9,8 @@ import {
   isSupportedChainId,
   SupportedChainId,
 } from "@/constant/contracts";
-import { formatBalance } from "@/lib/format";
 import { parseAmountToBigInt } from "@/lib/vault-operations";
-import {
-  useChainBalances,
-  useOperationValidation,
-  useBatchDepositValidation,
-} from "@/hooks";
+import { useBatchDepositValidation } from "@/hooks";
 import { useBatchDeposit } from "@/hooks/useBatchDeposit";
 import { OperationTabs } from "./OperationTabs";
 import { DepositInput } from "./DepositInput";
@@ -38,7 +33,6 @@ export function Dashboard() {
   const [activeTab, setActiveTab] = useState<OperationType>(
     OPERATION_TYPES.DEPOSIT
   );
-  const [withdrawAmount, setWithdrawAmount] = useState("");
   const [portfolioTab, setPortfolioTab] = useState<"summary" | "breakdown">(
     "summary"
   );
@@ -108,34 +102,6 @@ export function Dashboard() {
       setSelectedChainId(chainId);
     }
   }, [chainId]);
-
-  const {
-    data: balanceData,
-    isLoading: balancesLoading,
-    error: balancesError,
-  } = useChainBalances({ chainId: selectedChainId });
-
-  const usdcBalance = balanceData?.walletBalance;
-  const vaultBalance = balanceData?.vaultBalance;
-  const walletLoading = balancesLoading;
-  const vaultLoading = balancesLoading;
-  const walletError = balancesError;
-  const vaultError = balancesError;
-
-  const { withdrawValidation } = useOperationValidation({
-    depositAmount: "",
-    withdrawAmount,
-    walletBalance: walletError ? undefined : usdcBalance,
-    vaultBalance: vaultError ? undefined : vaultBalance,
-    chainId: selectedChainId,
-    token: "USDC",
-  });
-
-  const handleMaxWithdraw = () => {
-    if (vaultBalance) {
-      setWithdrawAmount(formatBalance(vaultBalance));
-    }
-  };
 
   const handleRetryChain = async (chainId: number) => {
     const amount = batchState.inputs[chainId as SupportedChainId];
@@ -219,13 +185,38 @@ export function Dashboard() {
     }
   };
 
-  const handleWithdraw = () => {
-    logger.debug(
-      "Withdraw:",
-      withdrawAmount,
-      "USDC from",
-      getChainName(selectedChainId)
+  const handleRetryAllFailed = async () => {
+    const failedOrPartial = depositResults.filter(
+      (r) =>
+        r.status === "failed" ||
+        r.status === "partial" ||
+        r.status === "cancelled"
     );
+    if (failedOrPartial.length === 0) return;
+
+    for (const r of failedOrPartial) {
+      const amount = batchState.inputs[r.chainId as SupportedChainId];
+      if (!amount) continue;
+      try {
+        const result = await retryChain(r.chainId as SupportedChainId, amount);
+        logger.debug(`Retry-all: chain ${r.chainId} -> ${result.status}`);
+        if (result.status === "success") {
+          queryClient.invalidateQueries({ queryKey: ["readContract"] });
+          queryClient.invalidateQueries({ queryKey: ["readContracts"] });
+        }
+      } catch (err) {
+        logger.error(`Retry-all: chain ${r.chainId} failed`, err);
+      }
+    }
+  };
+
+  const handleWithdraw = () => {
+    // logger.debug(
+    //   "Withdraw:",
+    //   withdrawAmount,
+    //   "USDC from",
+    //   getChainName(selectedChainId)
+    // );
     // TODO: Implement withdraw logic
   };
 
@@ -322,17 +313,14 @@ export function Dashboard() {
               retryingChainId: depositProgress.retryingChainId ?? null,
             }}
             onRetryChain={handleRetryChain}
+            onRetryAllFailed={handleRetryAllFailed}
             onDismiss={() => {
-              // If batch is complete, a dismissal is a true close: clear state.
-              const batchIsComplete =
-                !depositProgress.isRetrying &&
-                !isExecuting &&
-                depositResults.length > 0;
               setShowDepositProgress(false);
-              if (batchIsComplete) {
-                setDepositCompletedSuccessfully(false);
-                clearDepositAmounts();
-              }
+            }}
+            onClose={() => {
+              setShowDepositProgress(false);
+              setDepositCompletedSuccessfully(false);
+              clearDepositAmounts();
             }}
             onCancelBatch={() => {
               cancelDeposit();
@@ -345,10 +333,7 @@ export function Dashboard() {
         {!showDepositProgress &&
           (isExecuting ||
             depositProgress.isRetrying ||
-            (depositResults.length > 0 &&
-              !depositProgress.isRetrying &&
-              depositResults.some((r) => r.status !== "success") ===
-                false)) && (
+            (depositResults.length > 0 && !depositProgress.isRetrying)) && (
             <button
               onClick={() => setShowDepositProgress(true)}
               className="fixed bottom-4 right-4 z-40 px-4 py-3 shadow-lg border border-teal-500/40 bg-gradient-to-br from-gray-900/95 to-gray-800/90 backdrop-blur-md text-teal-300 hover:text-white hover:from-gray-800 hover:to-gray-700 transition-colors font-mono text-xs uppercase tracking-wide flex items-center gap-3 rounded-lg max-w-[70vw]"
