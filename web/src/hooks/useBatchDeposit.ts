@@ -340,7 +340,6 @@ export function useBatchDeposit(): UseBatchDepositReturn {
         const errorMessage =
           error instanceof Error ? error.message : "Retry failed";
         setError(errorMessage);
-        // clear local retry flag if service threw synchronously before events
         if (retryActiveChain === chainId) {
           setRetryActiveChain(null);
         }
