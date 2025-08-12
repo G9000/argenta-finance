@@ -138,10 +138,7 @@ export function DepositInputV2({
     }
 
     // Show first error if there is one and user has entered amounts
-    if (firstError && !hasEmptyAmounts) {
-      return firstError;
-    }
-
+    if (firstError && !hasEmptyAmounts) return firstError;
     if (activeChains === 0) {
       return "Enter Amount to Deposit";
     } else if (activeChains === 1) {
@@ -210,7 +207,6 @@ export function DepositInputV2({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="space-y-4">
         <div className="flex flex-col md:flex-row items-start justify-between gap-6">
           <DepositTypeHeader
@@ -244,7 +240,6 @@ export function DepositInputV2({
           const chainErrors = getChainErrors(chainId);
           const chainWarnings = getChainWarnings(chainId);
           const canRemove = isMultiChainMode && activeChains.size > 1;
-          const isSelected = !isMultiChainMode && chainId === selectedChainId;
 
           return (
             <ChainInput
@@ -262,7 +257,6 @@ export function DepositInputV2({
               canRemove={canRemove}
               disabled={disabled}
               isProcessing={isProcessing}
-              isSelected={isSelected}
             />
           );
         })}

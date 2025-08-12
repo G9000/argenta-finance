@@ -27,7 +27,6 @@ interface ChainInputProps {
   canRemove?: boolean;
   disabled?: boolean;
   isProcessing?: boolean;
-  isSelected?: boolean;
 }
 
 export function ChainInput({
@@ -42,7 +41,6 @@ export function ChainInput({
   canRemove = false,
   disabled = false,
   isProcessing = false,
-  isSelected = false,
 }: ChainInputProps) {
   const hasErrors = errors.length > 0;
   const hasWarnings = warnings.length > 0;
@@ -56,7 +54,6 @@ export function ChainInput({
       className={cn(
         "transition-all duration-200",
         amount && Number(amount) > 0 && "border-teal-500/30 bg-teal-500/5",
-        // isSelected && "ring-1 ring-teal-500/30",
         hasErrors && "border-red-400/30 bg-red-400/5",
         hasWarnings && !hasErrors && "border-yellow-400/30 bg-yellow-400/5"
       )}
@@ -71,6 +68,7 @@ export function ChainInput({
             />
             {canRemove && onRemove && (
               <button
+                type="button"
                 onClick={onRemove}
                 disabled={disabled || isProcessing}
                 className={cn(
@@ -87,7 +85,7 @@ export function ChainInput({
         <AmountInput
           value={amount}
           onChange={onAmountChange}
-          label="Deposit Amount"
+          label="Amount"
           token="USDC"
           disabled={disabled || isProcessing}
           hasErrors={hasErrors}
@@ -96,8 +94,7 @@ export function ChainInput({
           isBalanceLoading={balance.isLoading}
           balanceError={balance.error}
           onMaxClick={onMaxClick}
-          showBalance={true}
-          showMaxButton={true}
+          showMaxButton
         />
 
         <ValidationMessages errors={errors} warnings={warnings} />

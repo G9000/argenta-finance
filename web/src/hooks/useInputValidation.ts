@@ -5,7 +5,7 @@ import { type SupportedChainId, SUPPORTED_CHAINS } from "@/constant/chains";
 import {
   ChainInputArraySchema,
   ValidationReasonCode,
-  getValidationReasonCode,
+  getValidationReasonCodeFromIssue,
 } from "@/lib/validation";
 
 interface ChainInput {
@@ -64,12 +64,6 @@ export function useInputValidation(
         return result;
       }
 
-      // 3. If amount is empty, return as invalid but without error
-      if (!amount.trim()) {
-        return result;
-      }
-
-      result.isValid = false;
       return result;
     });
 
@@ -83,23 +77,20 @@ export function useInputValidation(
           validatedResults.map((result) => [result.chainId, result])
         );
 
-        // Update validation results for chains with amounts
         validationResults.forEach((result) => {
           const validated = validatedMap.get(result.chainId);
           if (validated && result.amount.trim()) {
             result.amountWei = validated.amountWei;
             result.normalizedAmount = validated.normalizedAmount;
             result.isValid = true;
-            // Clear any errors since validation passed
             result.error = undefined;
             result.reasonCode = undefined;
           }
         });
       } catch (error) {
         if (error instanceof z.ZodError) {
-          // Map validation errors back to specific chains
           error.issues.forEach((issue) => {
-            const reasonCode = getValidationReasonCode(error);
+            const reasonCode = getValidationReasonCodeFromIssue(issue);
             const errorMessage = issue.message || "Invalid amount format";
 
             // Handle array-level errors (like duplicate chain IDs)
@@ -120,7 +111,6 @@ export function useInputValidation(
                 }
               }
             } else {
-              // For general errors, apply to the first non-empty input
               const firstResult = validationResults.find((r) =>
                 r.amount.trim()
               );

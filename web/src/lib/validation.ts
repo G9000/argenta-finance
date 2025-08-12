@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { parseUnits } from "viem";
-import { type SupportedChainId, SUPPORTED_CHAINS } from "@/constant/chains";
+import {
+  type SupportedChainId,
+  SupportedChainId as SupportedChainIdEnum,
+} from "@/constant/chains";
 
 export enum ValidationReasonCode {
   WALLET_NOT_CONNECTED = "WALLET_NOT_CONNECTED",
@@ -31,12 +34,10 @@ function normalizeUnicodeDigits(amount: string): string {
 const MIN_WEI = 1n; // Dust threshold
 const MAX_WEI = parseUnits("1000000000", 6); // Absurd amount threshold
 
-// Create supported chain enum from SUPPORTED_CHAINS
-const literals = SUPPORTED_CHAINS.map((id) => z.literal(id));
-const SupportedChainEnum =
-  literals.length > 1
-    ? z.union(literals as [(typeof literals)[0], ...typeof literals])
-    : literals[0];
+const SupportedChainEnum = z.union([
+  z.literal(SupportedChainIdEnum.ETH_SEPOLIA),
+  z.literal(SupportedChainIdEnum.SEI_TESTNET),
+]);
 
 export const ChainInputSchema = z
   .object({
@@ -172,5 +173,13 @@ export function getValidationReasonCode(
   );
   return withCode
     ? ((withCode as any).params?.reasonCode as ValidationReasonCode)
+    : undefined;
+}
+
+export function getValidationReasonCodeFromIssue(
+  issue: z.ZodError["issues"][number]
+): ValidationReasonCode | undefined {
+  return issue.code === "custom" && (issue as any).params?.reasonCode
+    ? ((issue as any).params?.reasonCode as ValidationReasonCode)
     : undefined;
 }
