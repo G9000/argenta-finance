@@ -1,7 +1,8 @@
 # Argenta Multi-Chain Vault (Sepolia + Sei Testnet)
 
-Live APP URL: https://argenta-finance.vercel.app/
-Submission Final APP URL: https://argenta-finance-git-main-g9000s-projects.vercel.app/
+Live APP URL: https://argenta-finance.vercel.app
+
+Submission Final APP URL: https://argenta-finance-git-main-g9000s-projects.vercel.app
 
 Focus: multi-chain UX, a resilient batch **Approve → Deposit** flow, and clear transaction feedback.
 
