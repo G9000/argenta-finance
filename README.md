@@ -9,12 +9,13 @@ Focus: multi-chain UX, a resilient batch **Approve → Deposit** flow, and clear
 ---
 
 https://github.com/user-attachments/assets/d8dce002-c8fe-4012-9dab-aabbf632d125
+
 DEMO (Prior, I accidentally approved a massive allowance on Sepolia net, thus the approval skip)
+
 ## Submission Note
 
-The version submitted for review is on the branch submission. The video is taken on the submission build
+The version submitted for review is on the branch [submission-v1](https://github.com/G9000/argenta-finance/blob/submission-v1/README.md). The video is taken on the submission build.
 Commits after this point are for personal improvement and are not part of the official submission, as I just wanted to polish and be proud of what I built.
-
 
 ## Approach & Architecture
 
@@ -127,7 +128,7 @@ By **centralizing all batch execution logic** into `createBatchDepositService`, 
 
 ## Notes & Challenges
 
-- One of the biggest time sinks — and not particularly productive — was figuring out how to get USDC to the Sei Testnet. The official Circle CCTP reference at [https://replit.com/@buildoncircle/cctp-v2-web-app](https://replit.com/@buildoncircle/cctp-v2-web-app) did not work for me despite multiple attempts. While eventually resolved via a script (`bluewater-usdc-cctp`), this consumed a disproportionate amount of the available build time.
+- One of the biggest time sinks, and not particularly productive, was figuring out how to get USDC to the Sei Testnet. The official Circle CCTP reference at [https://replit.com/@buildoncircle/cctp-v2-web-app](https://replit.com/@buildoncircle/cctp-v2-web-app) did not work for me despite multiple attempts. While eventually resolved via a script (`bluewater-usdc-cctp`), this consumed a disproportionate amount of the available build time.
 
 ## Sequence Diagram
 
