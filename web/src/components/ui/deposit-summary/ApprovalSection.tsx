@@ -6,10 +6,11 @@ import { ChainApprovalCard } from "./ChainApprovalCard";
 import type { GasEstimateData } from "@/hooks/useGasEstimation";
 import type { SupportedChainId } from "@/constant/chains";
 
-interface IndividualOperationState {
+interface ChainOperationState {
   isOperating: boolean;
-  operatingChain: SupportedChainId | null;
   operationType: "approval" | "deposit" | "confirming" | null;
+  error?: string | null;
+  isUserCancellation?: boolean;
 }
 
 interface ApprovalSectionProps {
@@ -21,12 +22,14 @@ interface ApprovalSectionProps {
   allAllowancesLoaded: boolean;
   onApprove?: (chainId: number) => void;
   onDeposit?: (chainId: number) => void;
+  onRetry?: (chainId: number) => void;
   onBatchExecute?: () => void;
-  individualOperationState?: IndividualOperationState;
+  getChainState?: (chainId: SupportedChainId) => ChainOperationState;
   getChainTransactions?: (chainId: SupportedChainId) => {
     approvalTxHash?: `0x${string}`;
     depositTxHash?: `0x${string}`;
   };
+  clearError?: (chainId: SupportedChainId) => void;
 }
 
 export function ApprovalSection({
@@ -38,9 +41,11 @@ export function ApprovalSection({
   allAllowancesLoaded,
   onApprove,
   onDeposit,
+  onRetry,
   onBatchExecute,
-  individualOperationState,
+  getChainState,
   getChainTransactions,
+  clearError,
 }: ApprovalSectionProps) {
   const [isManualMode, setIsManualMode] = useState(true);
 
@@ -138,8 +143,10 @@ export function ApprovalSection({
             isManualMode={isManualMode}
             onApprove={onApprove}
             onDeposit={onDeposit}
-            individualOperationState={individualOperationState}
+            onRetry={onRetry}
+            getChainState={getChainState}
             getChainTransactions={getChainTransactions}
+            clearError={clearError}
           />
         ))}
       </div>

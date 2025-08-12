@@ -9,10 +9,11 @@ import {
 import type { SupportedChainId } from "@/constant/chains";
 import type { GasEstimateData } from "@/hooks/useGasEstimation";
 
-interface IndividualOperationState {
+interface ChainOperationState {
   isOperating: boolean;
-  operatingChain: SupportedChainId | null;
   operationType: "approval" | "deposit" | "confirming" | null;
+  error?: string | null;
+  isUserCancellation?: boolean;
 }
 
 interface DepositSummaryProps {
@@ -29,12 +30,14 @@ interface DepositSummaryProps {
   allAllowancesLoaded?: boolean;
   onApprove?: (chainId: number) => void;
   onDeposit?: (chainId: number) => void;
+  onRetry?: (chainId: number) => void;
   onBatchExecute?: () => void;
-  individualOperationState?: IndividualOperationState;
+  getChainState?: (chainId: SupportedChainId) => ChainOperationState;
   getChainTransactions?: (chainId: SupportedChainId) => {
     approvalTxHash?: `0x${string}`;
     depositTxHash?: `0x${string}`;
   };
+  clearError?: (chainId: SupportedChainId) => void;
 }
 
 export function DepositSummary({
@@ -51,9 +54,11 @@ export function DepositSummary({
   allAllowancesLoaded = true,
   onApprove,
   onDeposit,
+  onRetry,
   onBatchExecute,
-  individualOperationState,
+  getChainState,
   getChainTransactions,
+  clearError,
 }: DepositSummaryProps) {
   const activeChainCount = activeChainIds.length;
 
@@ -78,9 +83,11 @@ export function DepositSummary({
           allAllowancesLoaded={allAllowancesLoaded}
           onApprove={onApprove}
           onDeposit={onDeposit}
+          onRetry={onRetry}
           onBatchExecute={onBatchExecute}
-          individualOperationState={individualOperationState}
+          getChainState={getChainState}
           getChainTransactions={getChainTransactions}
+          clearError={clearError}
         />
       </div>
     </div>

@@ -5,9 +5,8 @@ import { useState, useEffect } from "react";
 import { useAccount, useChainId } from "wagmi";
 
 import { isSupportedChainId, SupportedChainId } from "@/constant/chains";
-import { parseAmountToBigInt } from "@/lib/vault-operations";
 import { useBatchDepositValidation } from "@/hooks";
-import { useBatchDeposit } from "@/hooks/useBatchDeposit";
+import { useMultiChainOperations } from "@/hooks/useMultiChainOperations";
 import { OperationTabs } from "./OperationTabs";
 import { DepositInputV2 } from "./ui/DepositInputV2";
 import { OperationType } from "@/types/ui-state";
@@ -15,7 +14,7 @@ import { OPERATION_TYPES } from "@/constant/operation-constants";
 import { createComponentLogger } from "@/lib/logger";
 import { VaultEmptyState } from "./ui";
 
-const logger = createComponentLogger("Dashboard");
+const logger = createComponentLogger("DashboardV2");
 
 export function DashboardV2() {
   const { address } = useAccount();
@@ -38,13 +37,18 @@ export function DashboardV2() {
   } = useBatchDepositValidation();
 
   const {
-    executeBatch,
-    isExecuting,
-    results: depositResults,
-    progress: depositProgress,
-  } = useBatchDeposit();
-
-  const [executeLocked] = useState(false);
+    queueBatchOperations,
+    processQueue,
+    clearQueue,
+    isProcessingQueue,
+    isAnyChainOperating,
+    getChainState,
+    getChainTransactions,
+    clearError,
+    approveChain,
+    depositChain,
+    retryOperation,
+  } = useMultiChainOperations();
 
   // Keep selectedChainId in sync especially when switching from the nav
   useEffect(() => {
@@ -57,65 +61,25 @@ export function DashboardV2() {
     const validAmounts = getValidChainAmounts();
     if (validAmounts.length === 0) return;
 
-    // logger.debug("Starting deposit for", validAmounts.length, "chains");
+    logger.debug("Starting deposit for", validAmounts.length, "chains");
 
-    // // Track amounts for logging
-    // const amountsByChain = validAmounts.reduce((acc, { chainId, amount }) => {
-    //   acc[chainId as SupportedChainId] = amount;
-    //   return acc;
-    // }, {} as Record<SupportedChainId, string>);
-    // logger.debug("Attempting deposit with amounts:", amountsByChain);
+    try {
+      // Clear any existing queue
+      clearQueue();
 
-    // const chainAmounts: {
-    //   chainId: SupportedChainId;
-    //   amount: string;
-    //   amountWei: bigint;
-    // }[] = [];
-    // const parseErrors: {
-    //   chainId: SupportedChainId;
-    //   amount: string;
-    //   reason: string;
-    // }[] = [];
+      // Queue all operations in a single state update
+      queueBatchOperations(validAmounts);
 
-    // for (const { chainId, amount } of validAmounts) {
-    //   try {
-    //     const amountWei = parseAmountToBigInt(amount, chainId);
-    //     logger.debug(
-    //       `Parsed amount for chain ${chainId}: ${amount} -> ${amountWei.toString()} wei`
-    //     );
-    //     chainAmounts.push({ chainId, amount, amountWei });
-    //   } catch (error) {
-    //     const reason = error instanceof Error ? error.message : String(error);
-    //     logger.error(`Failed to parse amount for chain ${chainId}:`, reason);
-    //     parseErrors.push({ chainId, amount, reason });
-    //   }
-    // }
+      // Add a small delay to ensure state updates are applied
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // if (parseErrors.length > 0) {
-    //   const summary = parseErrors
-    //     .map(
-    //       (e) =>
-    //         `chain ${e.chainId}: "${e.amount}" (${e.reason || "parse failed"})`
-    //     )
-    //     .join("; ");
-    //   const aggregatedMessage = `Invalid amount(s) detected: ${summary}`;
-    //   logger.error(aggregatedMessage);
-    //   throw new Error(aggregatedMessage);
-    // }
-
-    // logger.debug("Final chainAmounts:", chainAmounts);
-
-    // try {
-    //   await executeBatch(chainAmounts);
-    //   logger.debug("Deposit initiated successfully");
-    // } catch (error) {
-    //   logger.error("Failed to start deposit:", error);
-    // }
+      // Process the queue
+      await processQueue();
+      logger.debug("Unified deposit process completed");
+    } catch (error) {
+      logger.error("Failed to execute unified deposit:", error);
+    }
   };
-
-  const handleRetryAllFailed = async () => {};
-
-  const handleResetAll = () => {};
 
   const _handleWithdraw = () => {
     // logger.debug(
@@ -140,17 +104,16 @@ export function DashboardV2() {
             onAmountChange={updateDepositAmount}
             onMaxClick={setDepositMaxAmount}
             onExecuteDeposit={handleUnifiedDeposit}
-            disabled={isExecuting || depositProgress.isRetrying}
-            isProcessing={isExecuting || depositProgress.isRetrying}
+            disabled={isProcessingQueue || isAnyChainOperating}
+            isProcessing={isProcessingQueue || isAnyChainOperating}
             selectedChainId={selectedChainId}
-            // canRetryAll={
-            //   !isExecuting &&
-            //   !depositProgress.isRetrying &&
-            //   depositResults.some((r) => r.status !== "success")
-            // }
-            // onRetryAllFailed={handleRetryAllFailed}
-            //      onReset={handleResetAll}
-            // executeLocked={executeLocked}
+            getChainState={getChainState}
+            getChainTransactions={getChainTransactions}
+            clearError={clearError}
+            isAnyChainOperating={isAnyChainOperating}
+            approveChain={approveChain}
+            depositChain={depositChain}
+            retryOperation={retryOperation}
           />
         ) : (
           <DepositTabPlaceholder />

@@ -17,29 +17,39 @@ graph TD
     F --> G[Transaction Submitted]
     G --> H["● TRANSACTING<br/>🟠 Orange Pulse<br/>[CONFIRMING...]"]
 
-    H --> I[Transaction Confirmed]
-    I --> J["● READY TO DEPOSIT<br/>🟢 Green Static<br/>[DEPOSIT]<br/>📜 Approval Hash Shown"]
+    H --> I{Success?}
+    I -->|Yes| J[Transaction Confirmed]
+    I -->|No| K["● FAILED/CANCELLED<br/>🔴 Red Static<br/>[🔄 RETRY]"]
 
-    J --> K[User Clicks Deposit]
-    D --> K
-
-    K --> L["● DEPOSITING<br/>🟠 Orange Pulse<br/>[DEPOSITING...]"]
+    J --> L["● DEPOSITING<br/>🟠 Orange Pulse<br/>[DEPOSITING...]<br/>📜 Approval Hash Shown"]
 
     L --> M[Transaction Submitted]
     M --> N["● TRANSACTING<br/>🟠 Orange Pulse<br/>[CONFIRMING...]"]
 
-    N --> O[Transaction Confirmed]
-    O --> P["● COMPLETED<br/>🟢 Teal Static<br/>No Button<br/>📜 Both Hashes Shown<br/>🔥 Gas Section Hidden"]
+    D --> O[User Clicks Deposit]
+    O --> L
+
+    N --> P{Success?}
+    P -->|Yes| Q[Transaction Confirmed]
+    P -->|No| R["● FAILED/CANCELLED<br/>🔴 Red Static<br/>[🔄 RETRY]"]
+
+    Q --> S["● COMPLETED<br/>🟢 Teal Static<br/>No Button<br/>📜 Both Hashes Shown<br/>🔥 Gas Section Hidden"]
+
+    K --> T[User Clicks Retry]
+    R --> U[User Clicks Retry]
+    T --> F
+    U --> L
 
     style A fill:#1a1a1a,stroke:#14b8a6,color:#ffffff
     style C fill:#1a1a1a,stroke:#eab308,color:#ffffff
     style D fill:#1a1a1a,stroke:#22c55e,color:#ffffff
     style F fill:#1a1a1a,stroke:#f97316,color:#ffffff
     style H fill:#1a1a1a,stroke:#f97316,color:#ffffff
-    style J fill:#1a1a1a,stroke:#22c55e,color:#ffffff
     style L fill:#1a1a1a,stroke:#f97316,color:#ffffff
     style N fill:#1a1a1a,stroke:#f97316,color:#ffffff
-    style P fill:#1a1a1a,stroke:#14b8a6,color:#ffffff
+    style S fill:#1a1a1a,stroke:#14b8a6,color:#ffffff
+    style K fill:#1a1a1a,stroke:#ef4444,color:#ffffff
+    style R fill:#1a1a1a,stroke:#ef4444,color:#ffffff
 ```
 
 ## Key Features
@@ -49,18 +59,26 @@ graph TD
 - **● PENDING** - Yellow pulsing dot when approval is needed
 - **● APPROVING** - Orange pulsing dot during approval transaction
 - **● TRANSACTING** - Orange pulsing dot during confirmation
-- **● READY TO DEPOSIT** - Green static dot when ready for deposit
-- **● DEPOSITING** - Orange pulsing dot during deposit transaction
+- **● DEPOSITING** - Orange pulsing dot during deposit transaction (auto-triggered after approval)
+- **● READY TO DEPOSIT** - Green static dot when ready for standalone deposit
+- **● FAILED/CANCELLED** - Red static dot when transaction fails or user cancels
 - **● COMPLETED** - Teal static dot when fully complete
 
 ### Button States
 
-- **[APPROVE ALLOWANCE]** - Initial approval action
+- **[APPROVE ALLOWANCE]** - Initial approval action (auto-proceeds to deposit)
+- **[DEPOSIT]** - Standalone deposit action (for pre-approved chains)
+- **[🔄 RETRY]** - Retry failed operation
 - **[APPROVING...]** - During approval submission
-- **[CONFIRMING...]** - During transaction confirmation
-- **[DEPOSIT]** - Ready for deposit action
 - **[DEPOSITING...]** - During deposit submission
+- **[CONFIRMING...]** - During transaction confirmation
 - **No Button** - When operations are complete
+
+### Auto-Progression Flow
+
+- **Approval → Deposit**: After successful approval, automatically proceeds to deposit
+- **Error Recovery**: Failed operations can be retried with the same parameters
+- **User Cancellation**: Distinguishes between user cancellation and system errors
 
 ### Transaction History
 
