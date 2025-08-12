@@ -10,6 +10,11 @@ Focus: multi-chain UX, a resilient batch **Approve → Deposit** flow, and clear
 
 https://github.com/user-attachments/assets/d8dce002-c8fe-4012-9dab-aabbf632d125
 DEMO (Prior, I accidentally approved a massive allowance on Sepolia net, thus the approval skip)
+## Submission Note
+
+The version submitted for review is on the branch submission. The video is taken on the submission build
+Commits after this point are for personal improvement and are not part of the official submission, as I just wanted to polish and be proud of what I built.
+
 
 ## Approach & Architecture
 
