@@ -9,6 +9,12 @@ import {
 import type { SupportedChainId } from "@/constant/chains";
 import type { GasEstimateData } from "@/hooks/useGasEstimation";
 
+interface IndividualOperationState {
+  isOperating: boolean;
+  operatingChain: SupportedChainId | null;
+  operationType: "approval" | "deposit" | "confirming" | null;
+}
+
 interface DepositSummaryProps {
   activeChainIds: SupportedChainId[];
   totalAmount: string;
@@ -24,6 +30,11 @@ interface DepositSummaryProps {
   onApprove?: (chainId: number) => void;
   onDeposit?: (chainId: number) => void;
   onBatchExecute?: () => void;
+  individualOperationState?: IndividualOperationState;
+  getChainTransactions?: (chainId: SupportedChainId) => {
+    approvalTxHash?: `0x${string}`;
+    depositTxHash?: `0x${string}`;
+  };
 }
 
 export function DepositSummary({
@@ -41,11 +52,13 @@ export function DepositSummary({
   onApprove,
   onDeposit,
   onBatchExecute,
+  individualOperationState,
+  getChainTransactions,
 }: DepositSummaryProps) {
   const activeChainCount = activeChainIds.length;
 
   return (
-    <div className="border border-teal-500/30 bg-gradient-to-br from-teal-500/10 to-teal-500/5 backdrop-blur-sm rounded-lg p-6 shadow-lg">
+    <div className="border border-teal-500/30 bg-gradient-to-br from-teal-500/10 to-teal-500/5 backdrop-blur-sm p-6 shadow-lg">
       <div className="space-y-6">
         <ChainsList activeChainIds={activeChainIds} />
 
@@ -66,6 +79,8 @@ export function DepositSummary({
           onApprove={onApprove}
           onDeposit={onDeposit}
           onBatchExecute={onBatchExecute}
+          individualOperationState={individualOperationState}
+          getChainTransactions={getChainTransactions}
         />
       </div>
     </div>

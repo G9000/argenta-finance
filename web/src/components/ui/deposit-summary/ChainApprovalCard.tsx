@@ -2,8 +2,15 @@
 
 import Image from "next/image";
 import { getChainLogo } from "@/lib/tokens";
-import { getChainName } from "@/constant/chains";
+import { getChainName, type SupportedChainId } from "@/constant/chains";
 import type { GasEstimateData } from "@/hooks/useGasEstimation";
+import { getTransactionUrl, shortenTxHash } from "@/lib/explorer";
+
+interface IndividualOperationState {
+  isOperating: boolean;
+  operatingChain: SupportedChainId | null;
+  operationType: "approval" | "deposit" | "confirming" | null;
+}
 
 interface ChainApprovalCardProps {
   estimate: GasEstimateData;
@@ -11,6 +18,11 @@ interface ChainApprovalCardProps {
   isManualMode: boolean;
   onApprove?: (chainId: number) => void;
   onDeposit?: (chainId: number) => void;
+  individualOperationState?: IndividualOperationState;
+  getChainTransactions?: (chainId: SupportedChainId) => {
+    approvalTxHash?: `0x${string}`;
+    depositTxHash?: `0x${string}`;
+  };
 }
 
 export function ChainApprovalCard({
@@ -19,12 +31,44 @@ export function ChainApprovalCard({
   isManualMode,
   onApprove,
   onDeposit,
+  individualOperationState,
+  getChainTransactions,
 }: ChainApprovalCardProps) {
   const chainLogo = getChainLogo(estimate.chainId);
   const approvalCost = estimate.approvalGas?.estimatedCostFormatted || "0";
   const depositCost = estimate.depositGas?.estimatedCostFormatted || "0";
 
+  // Check if this chain is currently being operated on
+  const isThisChainOperating =
+    individualOperationState?.isOperating &&
+    individualOperationState.operatingChain === estimate.chainId;
+  const isApproving =
+    isThisChainOperating &&
+    individualOperationState?.operationType === "approval";
+  const isDepositing =
+    isThisChainOperating &&
+    individualOperationState?.operationType === "deposit";
+  const isConfirming =
+    isThisChainOperating &&
+    individualOperationState?.operationType === "confirming";
+
+  // Get transaction hashes for this chain
+  const chainTransactions = getChainTransactions?.(estimate.chainId) || {};
+  const { approvalTxHash, depositTxHash } = chainTransactions;
+
+  // Check if all operations are completed
+  // Need both: approval allowance AND deposit transaction hash
+  const isFullyCompleted = estimate.hasEnoughAllowance && depositTxHash;
+
+  // But if we need approval, we should also have the approval hash
+  const needsApprovalButNoHash = estimate.needsApproval && !approvalTxHash;
+
+  // Don't show completed if we're still confirming
+  const actuallyCompleted =
+    isFullyCompleted && !needsApprovalButNoHash && !isConfirming;
+
   const handleButtonClick = () => {
+    console.log("handleButtonClick", estimate.chainId);
     if (estimate.hasEnoughAllowance) {
       onDeposit?.(estimate.chainId);
     } else {
@@ -33,6 +77,31 @@ export function ChainApprovalCard({
   };
 
   const getAllowanceStatusDisplay = () => {
+    // Handle different transaction states
+    if (isApproving) {
+      return {
+        dot: "bg-orange-400 animate-pulse",
+        text: "text-orange-400",
+        label: "APPROVING",
+      };
+    }
+
+    if (isDepositing) {
+      return {
+        dot: "bg-orange-400 animate-pulse",
+        text: "text-orange-400",
+        label: "DEPOSITING",
+      };
+    }
+
+    if (isConfirming) {
+      return {
+        dot: "bg-orange-400 animate-pulse",
+        text: "text-orange-400",
+        label: "TRANSACTING",
+      };
+    }
+
     switch (estimate.allowanceState) {
       case "loading":
         return {
@@ -47,11 +116,18 @@ export function ChainApprovalCard({
           label: "ERROR",
         };
       case "loaded":
+        if (actuallyCompleted) {
+          return {
+            dot: "bg-teal-400",
+            text: "text-teal-400",
+            label: "COMPLETED",
+          };
+        }
         return estimate.hasEnoughAllowance
           ? {
               dot: "bg-green-400",
               text: "text-green-400",
-              label: "APPROVED",
+              label: "READY TO DEPOSIT",
             }
           : {
               dot: "bg-yellow-400 animate-pulse",
@@ -96,65 +172,135 @@ export function ChainApprovalCard({
         </div>
       </div>
 
-      {estimate.allowanceState === "loaded" && estimate.hasEnoughAllowance && (
+      {estimate.allowanceState === "loaded" &&
+        estimate.hasEnoughAllowance &&
+        !actuallyCompleted && (
+          <div className="flex items-center justify-between py-2 px-3 rounded-md bg-black/20">
+            <div className="flex items-center gap-2">
+              <span className="text-orange-400 text-sm">🔥</span>
+              <span className="text-gray-400 font-mono text-xs uppercase tracking-wide">
+                Estimated Gas
+              </span>
+            </div>
+            <div className="text-right">
+              {isGasLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 border border-teal-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-teal-400 font-mono text-xs">
+                    Estimating...
+                  </span>
+                </div>
+              ) : estimate.error ? (
+                (() => {
+                  console.warn(
+                    `Gas estimation failed for chain ${estimate.chainId}:`,
+                    estimate.error
+                  );
+                  return (
+                    <span className="text-yellow-400 font-mono text-xs">
+                      Unable to estimate
+                    </span>
+                  );
+                })()
+              ) : (
+                <>
+                  <div className="text-white font-mono text-sm font-medium">
+                    {parseFloat(estimate.totalGasCostFormatted).toFixed(4)} ETH
+                  </div>
+                  <div className="text-gray-400 font-mono text-xs">
+                    {estimate.needsApproval && (
+                      <>Approval: {parseFloat(approvalCost).toFixed(4)} + </>
+                    )}
+                    Deposit: {parseFloat(depositCost).toFixed(4)}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+      {(approvalTxHash || depositTxHash) && (
         <div className="flex items-center justify-between py-2 px-3 rounded-md bg-black/20">
           <div className="flex items-center gap-2">
-            <span className="text-orange-400 text-sm">🔥</span>
             <span className="text-gray-400 font-mono text-xs uppercase tracking-wide">
-              Estimated Gas
+              Transaction History
             </span>
           </div>
-          <div className="text-right">
-            {isGasLoading ? (
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 border border-teal-400 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-teal-400 font-mono text-xs">
-                  Estimating...
-                </span>
+          <div className="text-right space-y-1">
+            {approvalTxHash && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-yellow-400 font-mono">Approval:</span>
+                <a
+                  href={getTransactionUrl(estimate.chainId, approvalTxHash)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-400 hover:text-teal-300 font-mono underline"
+                >
+                  {shortenTxHash(approvalTxHash)}
+                </a>
               </div>
-            ) : estimate.error ? (
-              (() => {
-                console.warn(
-                  `Gas estimation failed for chain ${estimate.chainId}:`,
-                  estimate.error
-                );
-                return (
-                  <span className="text-yellow-400 font-mono text-xs">
-                    Unable to estimate
-                  </span>
-                );
-              })()
-            ) : (
-              <>
-                <div className="text-white font-mono text-sm font-medium">
-                  {parseFloat(estimate.totalGasCostFormatted).toFixed(4)} ETH
-                </div>
-                <div className="text-gray-400 font-mono text-xs">
-                  {estimate.needsApproval && (
-                    <>Approval: {parseFloat(approvalCost).toFixed(4)} + </>
-                  )}
-                  Deposit: {parseFloat(depositCost).toFixed(4)}
-                </div>
-              </>
+            )}
+            {depositTxHash && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-green-400 font-mono">Deposit:</span>
+                <a
+                  href={getTransactionUrl(estimate.chainId, depositTxHash)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-400 hover:text-teal-300 font-mono underline"
+                >
+                  {shortenTxHash(depositTxHash)}
+                </a>
+              </div>
             )}
           </div>
         </div>
       )}
 
-      {isManualMode && estimate.allowanceState === "loaded" && (
-        <div className="pt-2">
-          <button
-            className={`w-full py-2 px-4 rounded-md font-mono text-sm font-medium uppercase tracking-wide transition-colors ${
-              estimate.hasEnoughAllowance
-                ? "bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30"
-                : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/30"
-            }`}
-            onClick={handleButtonClick}
-          >
-            {estimate.hasEnoughAllowance ? "Deposit" : "Approve Allowance"}
-          </button>
-        </div>
-      )}
+      {isManualMode &&
+        estimate.allowanceState === "loaded" &&
+        !actuallyCompleted && (
+          <div className="pt-3">
+            <button
+              className={`w-full py-2 px-4 rounded-md font-mono text-sm font-medium uppercase tracking-wide transition-colors ${
+                estimate.hasEnoughAllowance
+                  ? isDepositing || isConfirming
+                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                    : "bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30"
+                  : isApproving || isConfirming
+                  ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                  : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/30"
+              } ${
+                isApproving || isDepositing || isConfirming
+                  ? "cursor-not-allowed"
+                  : ""
+              }`}
+              onClick={handleButtonClick}
+              disabled={isApproving || isDepositing || isConfirming}
+            >
+              {isApproving ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Approving...</span>
+                </div>
+              ) : isDepositing ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Depositing...</span>
+                </div>
+              ) : isConfirming ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-3 h-3 border border-teal-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Confirming...</span>
+                </div>
+              ) : estimate.hasEnoughAllowance ? (
+                "Deposit"
+              ) : (
+                "Approve Allowance"
+              )}
+            </button>
+          </div>
+        )}
 
       {estimate.allowanceState === "error" && (
         <div className="pt-2">

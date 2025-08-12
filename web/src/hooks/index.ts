@@ -9,6 +9,8 @@ export { useInputValidation } from "./useInputValidation";
 
 // Batch operation hooks
 export { useBatchDepositValidation } from "./useBatchDepositValidation";
+export { useIndividualChainOperations } from "./useIndividualChainOperations";
+export type { UseIndividualChainOperationsReturn } from "./useIndividualChainOperations";
 
 // Gas estimation hooks
 export { useGasEstimation } from "./useGasEstimation";

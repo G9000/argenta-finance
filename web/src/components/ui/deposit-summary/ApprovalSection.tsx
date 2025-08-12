@@ -4,6 +4,13 @@ import { useState } from "react";
 import { ExecutionModeToggle } from "./ExecutionModeToggle";
 import { ChainApprovalCard } from "./ChainApprovalCard";
 import type { GasEstimateData } from "@/hooks/useGasEstimation";
+import type { SupportedChainId } from "@/constant/chains";
+
+interface IndividualOperationState {
+  isOperating: boolean;
+  operatingChain: SupportedChainId | null;
+  operationType: "approval" | "deposit" | "confirming" | null;
+}
 
 interface ApprovalSectionProps {
   gasEstimates: GasEstimateData[];
@@ -15,6 +22,11 @@ interface ApprovalSectionProps {
   onApprove?: (chainId: number) => void;
   onDeposit?: (chainId: number) => void;
   onBatchExecute?: () => void;
+  individualOperationState?: IndividualOperationState;
+  getChainTransactions?: (chainId: SupportedChainId) => {
+    approvalTxHash?: `0x${string}`;
+    depositTxHash?: `0x${string}`;
+  };
 }
 
 export function ApprovalSection({
@@ -27,6 +39,8 @@ export function ApprovalSection({
   onApprove,
   onDeposit,
   onBatchExecute,
+  individualOperationState,
+  getChainTransactions,
 }: ApprovalSectionProps) {
   const [isManualMode, setIsManualMode] = useState(true);
 
@@ -121,9 +135,11 @@ export function ApprovalSection({
             key={estimate.chainId}
             estimate={estimate}
             isGasLoading={isGasLoading}
-            isManualMode={needsApprovalOnAnyChain ? isManualMode : false}
+            isManualMode={isManualMode}
             onApprove={onApprove}
             onDeposit={onDeposit}
+            individualOperationState={individualOperationState}
+            getChainTransactions={getChainTransactions}
           />
         ))}
       </div>

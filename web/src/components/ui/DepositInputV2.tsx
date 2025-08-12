@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useAccount } from "wagmi";
 import { SupportedChainId, SUPPORTED_CHAINS } from "@/constant/chains";
 import { getUsdc } from "@/constant/tokens";
-import { useChainBalances } from "@/hooks";
+import { useChainBalances, useIndividualChainOperations } from "@/hooks";
 import { useInputValidation } from "@/hooks/useInputValidation";
 import { useGasEstimation } from "@/hooks/useGasEstimation";
 import {
@@ -46,6 +46,14 @@ export function DepositInputV2({
   selectedChainId,
 }: DepositInputProps) {
   const { address } = useAccount();
+  const {
+    approveChain,
+    depositChain,
+    isOperating,
+    operatingChain,
+    operationType,
+    getChainTransactions,
+  } = useIndividualChainOperations();
   const [activeChains, setActiveChains] = useState<Set<SupportedChainId>>(
     new Set([selectedChainId])
   );
@@ -175,6 +183,42 @@ export function DepositInputV2({
 
   const totalAmount = useMemo(() => getTotalAmount(), [activeChains, inputs]);
 
+  const handleApprove = async (chainId: number) => {
+    const amount = inputs[chainId as SupportedChainId];
+    console.log("handleApprove called", { chainId, amount });
+    if (!amount) {
+      console.log("No amount found for chain", chainId);
+      return;
+    }
+
+    try {
+      console.log("Starting approval for chain", chainId, "amount", amount);
+      await approveChain(chainId as SupportedChainId, amount);
+      console.log("Approval completed for chain", chainId);
+    } catch (error) {
+      // Error is handled by the hook
+      console.error("Approval failed:", error);
+    }
+  };
+
+  const handleDeposit = async (chainId: number) => {
+    const amount = inputs[chainId as SupportedChainId];
+    console.log("handleDeposit called", { chainId, amount });
+    if (!amount) {
+      console.log("No amount found for chain", chainId);
+      return;
+    }
+
+    try {
+      console.log("Starting deposit for chain", chainId, "amount", amount);
+      await depositChain(chainId as SupportedChainId, amount);
+      console.log("Deposit completed for chain", chainId);
+    } catch (error) {
+      // Error is handled by the hook
+      console.error("Deposit failed:", error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -235,6 +279,14 @@ export function DepositInputV2({
             hasAllowanceLoading={hasAllowanceLoading}
             hasAllowanceErrors={hasAllowanceErrors}
             allAllowancesLoaded={allAllowancesLoaded}
+            onApprove={handleApprove}
+            onDeposit={handleDeposit}
+            individualOperationState={{
+              isOperating,
+              operatingChain,
+              operationType,
+            }}
+            getChainTransactions={getChainTransactions}
           />
 
           <div className="w-1/3 ml-auto">

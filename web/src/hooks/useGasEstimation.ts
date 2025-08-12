@@ -54,11 +54,9 @@ export interface UseGasEstimationReturn {
   totalGasCostFormattedETH: string;
   isLoading: boolean;
   hasErrors: boolean;
-  // Helper methods for UI logic
   needsApprovalOnAnyChain: boolean;
   allChainsApproved: boolean;
   canProceedWithDeposit: boolean;
-  // Allowance state helpers
   hasAllowanceLoading: boolean;
   hasAllowanceErrors: boolean;
   allAllowancesLoaded: boolean;

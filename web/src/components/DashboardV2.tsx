@@ -132,7 +132,7 @@ export function DashboardV2() {
   }
 
   return (
-    <div className="w-3xl bg-teal-500/10 p-5">
+    <div className="w-full md:w-3xl bg-teal-500/10 p-5">
       <OperationTabs activeTab={activeTab} onTabChange={setActiveTab}>
         {activeTab === OPERATION_TYPES.DEPOSIT ? (
           <DepositInputV2
