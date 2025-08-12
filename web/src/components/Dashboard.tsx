@@ -9,9 +9,10 @@ import {
   SupportedChainId,
   SUPPORTED_CHAINS,
 } from "@/constant/chains";
-import { parseAmountToBigInt } from "@/lib/vault-operations";
+
 import { useBatchDepositValidation } from "@/hooks";
 import { useBatchDeposit } from "@/hooks/useBatchDeposit";
+import { useInputValidation } from "@/hooks/useInputValidation";
 import { OperationTabs } from "./OperationTabs";
 import { DepositInput } from "./DepositInput";
 import { BatchOperationProgress } from "./BatchOperationProgress";
@@ -46,8 +47,20 @@ export function Dashboard() {
     updateAmount: updateDepositAmount,
     setMaxAmount: setDepositMaxAmount,
     clearAll: clearDepositAmounts,
-    getValidChainAmounts,
   } = useBatchDepositValidation();
+
+  // Simple input validation
+  const inputsForValidation = SUPPORTED_CHAINS.map((chainId) => ({
+    chainId,
+    amount: batchState.inputs[chainId] || "",
+  }));
+
+  const {
+    validChains,
+    canProceed,
+    totalApprovals,
+    isLoading: _validationLoading,
+  } = useInputValidation(inputsForValidation);
 
   const {
     executeBatch,
@@ -151,55 +164,20 @@ export function Dashboard() {
   };
 
   const handleUnifiedDeposit = async () => {
-    const validAmounts = getValidChainAmounts();
-    if (validAmounts.length === 0) return;
-
-    logger.debug("Starting deposit for", validAmounts.length, "chains");
-
-    setLastAttemptedAmounts((prev) => {
-      const next = { ...prev };
-      for (const { chainId, amount } of validAmounts) {
-        next[chainId as SupportedChainId] = amount;
-      }
-      return next;
-    });
-
-    const chainAmounts: {
-      chainId: SupportedChainId;
-      amount: string;
-      amountWei: bigint;
-    }[] = [];
-    const parseErrors: {
-      chainId: SupportedChainId;
-      amount: string;
-      reason: string;
-    }[] = [];
-
-    for (const { chainId, amount } of validAmounts) {
-      try {
-        const amountWei = parseAmountToBigInt(amount, chainId);
-        logger.debug(
-          `Parsed amount for chain ${chainId}: ${amount} -> ${amountWei.toString()} wei`
-        );
-        chainAmounts.push({ chainId, amount, amountWei });
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        logger.error(`Failed to parse amount for chain ${chainId}:`, reason);
-        parseErrors.push({ chainId, amount, reason });
-      }
+    if (!canProceed || validChains.length === 0) {
+      logger.warn("Cannot proceed - validation failed or no valid chains");
+      return;
     }
 
-    if (parseErrors.length > 0) {
-      const summary = parseErrors
-        .map(
-          (e) =>
-            `chain ${e.chainId}: "${e.amount}" (${e.reason || "parse failed"})`
-        )
-        .join("; ");
-      const aggregatedMessage = `Invalid amount(s) detected: ${summary}`;
-      logger.error(aggregatedMessage);
-      throw new Error(aggregatedMessage);
-    }
+    logger.debug("Starting deposit for", validChains.length, "chains");
+    logger.debug("Total approvals needed:", totalApprovals);
+
+    // Convert validated chains to execution format
+    const chainAmounts = validChains.map(({ chainId, amount, amountWei }) => ({
+      chainId,
+      amount,
+      amountWei,
+    }));
 
     logger.debug("Final chainAmounts:", chainAmounts);
 
@@ -284,7 +262,9 @@ export function Dashboard() {
                 onAmountChange={updateDepositAmount}
                 onMaxClick={setDepositMaxAmount}
                 onExecuteDeposit={handleUnifiedDeposit}
-                disabled={isExecuting || depositProgress.isRetrying}
+                disabled={
+                  isExecuting || depositProgress.isRetrying || !canProceed
+                }
                 isProcessing={isExecuting || depositProgress.isRetrying}
                 selectedChainId={selectedChainId}
                 canRetryAll={

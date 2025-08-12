@@ -1,60 +1,152 @@
 import { useMemo } from "react";
-import { useAccount, useBalance } from "wagmi";
-import { OperationType, SupportedTokenSymbol } from "@/types/ui-state";
-import { VALIDATION_CONFIG } from "@/constant/operation-constants";
-import { validateInput, ValidationResult } from "@/lib/validation";
+import { useAccount } from "wagmi";
+import { z } from "zod";
+import { type SupportedChainId, SUPPORTED_CHAINS } from "@/constant/chains";
+import {
+  ChainInputArraySchema,
+  ValidationReasonCode,
+  getValidationReasonCode,
+} from "@/lib/validation";
 
-export interface UseInputValidationProps {
+interface ChainInput {
+  chainId: SupportedChainId;
   amount: string;
-  type: OperationType;
-  walletBalance?: bigint;
-  vaultBalance?: bigint;
-  chainId?: number;
-  token?: {
-    symbol: SupportedTokenSymbol;
-    decimals: number;
-    minAmount?: string;
-  };
+  decimals?: number;
 }
 
-export function useInputValidation({
-  amount,
-  type,
-  walletBalance,
-  vaultBalance,
-  chainId,
-  token = {
-    symbol: "USDC" as const,
-    decimals: 6,
-    minAmount: VALIDATION_CONFIG.MIN_AMOUNTS.USDC,
-  },
-}: UseInputValidationProps): ValidationResult {
+interface ChainValidation {
+  chainId: SupportedChainId;
+  amount: string;
+  amountWei: bigint;
+  isValid: boolean;
+  error?: string;
+  reasonCode?: ValidationReasonCode;
+  normalizedAmount?: string;
+}
+
+interface UseInputValidationReturn {
+  validChains: ChainValidation[];
+  canProceed: boolean;
+  isLoading: boolean;
+  firstError?: string;
+  hasEmptyAmounts: boolean;
+}
+
+export function useInputValidation(
+  inputs: ChainInput[]
+): UseInputValidationReturn {
   const { address, isConnected } = useAccount();
 
-  const { data: ethBalance } = useBalance({
-    address,
-    chainId,
-  });
+  const validChains = useMemo((): ChainValidation[] => {
+    if (inputs.length === 0) {
+      return [];
+    }
 
-  return useMemo(() => {
-    return validateInput({
-      amount,
-      type,
-      walletBalance,
-      vaultBalance,
-      isConnected,
-      address,
-      ethBalance: ethBalance?.value,
-      token,
+    const validationResults = inputs.map(({ chainId, amount }) => {
+      const result: ChainValidation = {
+        chainId,
+        amount,
+        amountWei: 0n,
+        isValid: false,
+      };
+
+      // 1. Check wallet connection
+      if (!isConnected || !address) {
+        result.error = "Wallet not connected";
+        result.reasonCode = ValidationReasonCode.WALLET_NOT_CONNECTED;
+        return result;
+      }
+
+      // 2. Check if chain is supported
+      if (!SUPPORTED_CHAINS.includes(chainId)) {
+        result.error = "Chain not supported";
+        result.reasonCode = ValidationReasonCode.CHAIN_NOT_SUPPORTED;
+        return result;
+      }
+
+      // 3. If amount is empty, return as invalid but without error
+      if (!amount.trim()) {
+        return result;
+      }
+
+      result.isValid = false;
+      return result;
     });
-  }, [
-    amount,
-    type,
-    walletBalance,
-    vaultBalance,
-    token,
-    isConnected,
-    address,
-    ethBalance?.value,
-  ]);
+
+    // Parse the entire array once to catch duplicate chain IDs and get validated results
+    const nonEmptyInputs = inputs.filter((input) => input.amount.trim());
+    if (nonEmptyInputs.length > 0) {
+      try {
+        const validatedResults = ChainInputArraySchema.parse(nonEmptyInputs);
+
+        const validatedMap = new Map(
+          validatedResults.map((result) => [result.chainId, result])
+        );
+
+        // Update validation results for chains with amounts
+        validationResults.forEach((result) => {
+          const validated = validatedMap.get(result.chainId);
+          if (validated && result.amount.trim()) {
+            result.amountWei = validated.amountWei;
+            result.normalizedAmount = validated.normalizedAmount;
+            result.isValid = true;
+            // Clear any errors since validation passed
+            result.error = undefined;
+            result.reasonCode = undefined;
+          }
+        });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          // Map validation errors back to specific chains
+          error.issues.forEach((issue) => {
+            const reasonCode = getValidationReasonCode(error);
+            const errorMessage = issue.message || "Invalid amount format";
+
+            // Handle array-level errors (like duplicate chain IDs)
+            if (Array.isArray(issue.path) && issue.path.length >= 2) {
+              const rowIndex = issue.path[0] as number;
+              if (
+                typeof rowIndex === "number" &&
+                rowIndex < nonEmptyInputs.length
+              ) {
+                const errorChainId = nonEmptyInputs[rowIndex].chainId;
+                const chainResult = validationResults.find(
+                  (r) => r.chainId === errorChainId
+                );
+                if (chainResult) {
+                  chainResult.error = errorMessage;
+                  chainResult.reasonCode =
+                    reasonCode || ValidationReasonCode.AMOUNT_INVALID_FORMAT;
+                }
+              }
+            } else {
+              // For general errors, apply to the first non-empty input
+              const firstResult = validationResults.find((r) =>
+                r.amount.trim()
+              );
+              if (firstResult) {
+                firstResult.error = errorMessage;
+                firstResult.reasonCode =
+                  reasonCode || ValidationReasonCode.AMOUNT_INVALID_FORMAT;
+              }
+            }
+          });
+        }
+      }
+    }
+
+    return validationResults;
+  }, [inputs, isConnected, address]);
+
+  const canProceed = validChains.some((chain) => chain.isValid);
+  const firstError = validChains.find((chain) => chain.error)?.error;
+  const hasEmptyAmounts = inputs.some((input) => !input.amount.trim());
+
+  return {
+    validChains,
+    canProceed,
+    isLoading: false,
+    firstError,
+    hasEmptyAmounts,
+  };
 }
