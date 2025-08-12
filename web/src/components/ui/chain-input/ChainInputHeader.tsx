@@ -4,19 +4,19 @@ import { getChainLogo } from "@/lib/tokens";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-interface ChainHeaderProps {
+interface ChainInputHeaderProps {
   chainId: number;
   chainName: string;
   iconSize?: number;
   className?: string;
 }
 
-export function ChainHeader({
+export function ChainInputHeader({
   chainId,
   chainName,
   iconSize = 24,
   className,
-}: ChainHeaderProps) {
+}: ChainInputHeaderProps) {
   const chainLogo = getChainLogo(chainId);
 
   return (

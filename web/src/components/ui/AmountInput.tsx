@@ -13,7 +13,6 @@ interface AmountInputProps {
   token?: string;
   disabled?: boolean;
   hasErrors?: boolean;
-  hasWarnings?: boolean;
   className?: string;
   balance?: bigint;
   isBalanceLoading?: boolean;
@@ -31,7 +30,6 @@ export function AmountInput({
   token = "USDC",
   disabled = false,
   hasErrors = false,
-  hasWarnings = false,
   className,
   balance,
   isBalanceLoading = false,
@@ -99,8 +97,6 @@ export function AmountInput({
             "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
             hasErrors
               ? "border-red-400/60 focus:border-red-400 focus:ring-red-400/20"
-              : hasWarnings
-              ? "border-yellow-400/60 focus:border-yellow-400 focus:ring-yellow-400/20"
               : "border-white/10 focus:border-teal-500 focus:ring-teal-500/20",
             !showMaxButton && "pr-32"
           )}
