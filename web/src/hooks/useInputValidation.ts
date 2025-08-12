@@ -3,7 +3,7 @@ import { useAccount } from "wagmi";
 import { z } from "zod";
 import { type SupportedChainId, SUPPORTED_CHAINS } from "@/constant/chains";
 import {
-  ChainInputArraySchema,
+  ChainInputSchema,
   ValidationReasonCode,
   getValidationReasonCodeFromIssue,
 } from "@/lib/validation";
@@ -67,63 +67,31 @@ export function useInputValidation(
       return result;
     });
 
-    // Parse the entire array once to catch duplicate chain IDs and get validated results
-    const nonEmptyInputs = inputs.filter((input) => input.amount.trim());
-    if (nonEmptyInputs.length > 0) {
+    // Validate each input individually for proper error mapping
+    inputs.forEach((input, inputIndex) => {
+      if (!input.amount.trim()) return; // Skip empty inputs
+
+      const result = validationResults[inputIndex];
+      if (!result || result.chainId !== input.chainId) return;
+
       try {
-        const validatedResults = ChainInputArraySchema.parse(nonEmptyInputs);
+        const validatedResult = ChainInputSchema.parse(input);
 
-        const validatedMap = new Map(
-          validatedResults.map((result) => [result.chainId, result])
-        );
-
-        validationResults.forEach((result) => {
-          const validated = validatedMap.get(result.chainId);
-          if (validated && result.amount.trim()) {
-            result.amountWei = validated.amountWei;
-            result.normalizedAmount = validated.normalizedAmount;
-            result.isValid = true;
-            result.error = undefined;
-            result.reasonCode = undefined;
-          }
-        });
+        result.amountWei = validatedResult.amountWei;
+        result.normalizedAmount = validatedResult.normalizedAmount;
+        result.isValid = true;
+        result.error = undefined;
+        result.reasonCode = undefined;
       } catch (error) {
         if (error instanceof z.ZodError) {
-          error.issues.forEach((issue) => {
-            const reasonCode = getValidationReasonCodeFromIssue(issue);
-            const errorMessage = issue.message || "Invalid amount format";
-
-            // Handle array-level errors (like duplicate chain IDs)
-            if (Array.isArray(issue.path) && issue.path.length >= 2) {
-              const rowIndex = issue.path[0] as number;
-              if (
-                typeof rowIndex === "number" &&
-                rowIndex < nonEmptyInputs.length
-              ) {
-                const errorChainId = nonEmptyInputs[rowIndex].chainId;
-                const chainResult = validationResults.find(
-                  (r) => r.chainId === errorChainId
-                );
-                if (chainResult) {
-                  chainResult.error = errorMessage;
-                  chainResult.reasonCode =
-                    reasonCode || ValidationReasonCode.AMOUNT_INVALID_FORMAT;
-                }
-              }
-            } else {
-              const firstResult = validationResults.find((r) =>
-                r.amount.trim()
-              );
-              if (firstResult) {
-                firstResult.error = errorMessage;
-                firstResult.reasonCode =
-                  reasonCode || ValidationReasonCode.AMOUNT_INVALID_FORMAT;
-              }
-            }
-          });
+          const firstIssue = error.issues[0];
+          const reasonCode = getValidationReasonCodeFromIssue(firstIssue);
+          result.error = firstIssue.message || "Invalid amount format";
+          result.reasonCode =
+            reasonCode || ValidationReasonCode.AMOUNT_INVALID_FORMAT;
         }
       }
-    }
+    });
 
     return validationResults;
   }, [inputs, isConnected, address]);

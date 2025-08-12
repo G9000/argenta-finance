@@ -57,60 +57,60 @@ export function DashboardV2() {
     const validAmounts = getValidChainAmounts();
     if (validAmounts.length === 0) return;
 
-    logger.debug("Starting deposit for", validAmounts.length, "chains");
+    // logger.debug("Starting deposit for", validAmounts.length, "chains");
 
-    // Track amounts for logging
-    const amountsByChain = validAmounts.reduce((acc, { chainId, amount }) => {
-      acc[chainId as SupportedChainId] = amount;
-      return acc;
-    }, {} as Record<SupportedChainId, string>);
-    logger.debug("Attempting deposit with amounts:", amountsByChain);
+    // // Track amounts for logging
+    // const amountsByChain = validAmounts.reduce((acc, { chainId, amount }) => {
+    //   acc[chainId as SupportedChainId] = amount;
+    //   return acc;
+    // }, {} as Record<SupportedChainId, string>);
+    // logger.debug("Attempting deposit with amounts:", amountsByChain);
 
-    const chainAmounts: {
-      chainId: SupportedChainId;
-      amount: string;
-      amountWei: bigint;
-    }[] = [];
-    const parseErrors: {
-      chainId: SupportedChainId;
-      amount: string;
-      reason: string;
-    }[] = [];
+    // const chainAmounts: {
+    //   chainId: SupportedChainId;
+    //   amount: string;
+    //   amountWei: bigint;
+    // }[] = [];
+    // const parseErrors: {
+    //   chainId: SupportedChainId;
+    //   amount: string;
+    //   reason: string;
+    // }[] = [];
 
-    for (const { chainId, amount } of validAmounts) {
-      try {
-        const amountWei = parseAmountToBigInt(amount, chainId);
-        logger.debug(
-          `Parsed amount for chain ${chainId}: ${amount} -> ${amountWei.toString()} wei`
-        );
-        chainAmounts.push({ chainId, amount, amountWei });
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        logger.error(`Failed to parse amount for chain ${chainId}:`, reason);
-        parseErrors.push({ chainId, amount, reason });
-      }
-    }
+    // for (const { chainId, amount } of validAmounts) {
+    //   try {
+    //     const amountWei = parseAmountToBigInt(amount, chainId);
+    //     logger.debug(
+    //       `Parsed amount for chain ${chainId}: ${amount} -> ${amountWei.toString()} wei`
+    //     );
+    //     chainAmounts.push({ chainId, amount, amountWei });
+    //   } catch (error) {
+    //     const reason = error instanceof Error ? error.message : String(error);
+    //     logger.error(`Failed to parse amount for chain ${chainId}:`, reason);
+    //     parseErrors.push({ chainId, amount, reason });
+    //   }
+    // }
 
-    if (parseErrors.length > 0) {
-      const summary = parseErrors
-        .map(
-          (e) =>
-            `chain ${e.chainId}: "${e.amount}" (${e.reason || "parse failed"})`
-        )
-        .join("; ");
-      const aggregatedMessage = `Invalid amount(s) detected: ${summary}`;
-      logger.error(aggregatedMessage);
-      throw new Error(aggregatedMessage);
-    }
+    // if (parseErrors.length > 0) {
+    //   const summary = parseErrors
+    //     .map(
+    //       (e) =>
+    //         `chain ${e.chainId}: "${e.amount}" (${e.reason || "parse failed"})`
+    //     )
+    //     .join("; ");
+    //   const aggregatedMessage = `Invalid amount(s) detected: ${summary}`;
+    //   logger.error(aggregatedMessage);
+    //   throw new Error(aggregatedMessage);
+    // }
 
-    logger.debug("Final chainAmounts:", chainAmounts);
+    // logger.debug("Final chainAmounts:", chainAmounts);
 
-    try {
-      await executeBatch(chainAmounts);
-      logger.debug("Deposit initiated successfully");
-    } catch (error) {
-      logger.error("Failed to start deposit:", error);
-    }
+    // try {
+    //   await executeBatch(chainAmounts);
+    //   logger.debug("Deposit initiated successfully");
+    // } catch (error) {
+    //   logger.error("Failed to start deposit:", error);
+    // }
   };
 
   const handleRetryAllFailed = async () => {};
@@ -132,58 +132,60 @@ export function DashboardV2() {
   }
 
   return (
-    <div className="w-full">
-      <div className="grid gap-6 sm:gap-8 md:gap-10 bg-teal-500/10 px-3 py-6 sm:px-6 sm:py-8 md:px-8 md:py-10">
-        <OperationTabs activeTab={activeTab} onTabChange={setActiveTab}>
-          {activeTab === OPERATION_TYPES.DEPOSIT ? (
-            <div className="space-y-4">
-              <DepositInputV2
-                inputs={batchState.inputs}
-                onAmountChange={updateDepositAmount}
-                onMaxClick={setDepositMaxAmount}
-                onExecuteDeposit={handleUnifiedDeposit}
-                disabled={isExecuting || depositProgress.isRetrying}
-                isProcessing={isExecuting || depositProgress.isRetrying}
-                selectedChainId={selectedChainId}
-                canRetryAll={
-                  !isExecuting &&
-                  !depositProgress.isRetrying &&
-                  depositResults.some((r) => r.status !== "success")
-                }
-                onRetryAllFailed={handleRetryAllFailed}
-                onReset={handleResetAll}
-                executeLocked={executeLocked}
-              />
-            </div>
-          ) : (
-            <div className="relative overflow-hidden border border-white/10 bg-gradient-to-br from-gray-900/30 to-gray-800/20 backdrop-blur-sm">
-              <div className="relative z-10 p-8 sm:p-12 text-center space-y-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-mono font-semibold text-white uppercase tracking-wide">
-                      Withdraw Feature
-                    </h3>
-                    <p className="text-teal-400 text-sm font-mono uppercase tracking-wide">
-                      Coming Soon
-                    </p>
-                  </div>
-                </div>
+    <div className="w-3xl bg-teal-500/10 p-5">
+      <OperationTabs activeTab={activeTab} onTabChange={setActiveTab}>
+        {activeTab === OPERATION_TYPES.DEPOSIT ? (
+          <DepositInputV2
+            inputs={batchState.inputs}
+            onAmountChange={updateDepositAmount}
+            onMaxClick={setDepositMaxAmount}
+            onExecuteDeposit={handleUnifiedDeposit}
+            disabled={isExecuting || depositProgress.isRetrying}
+            isProcessing={isExecuting || depositProgress.isRetrying}
+            selectedChainId={selectedChainId}
+            // canRetryAll={
+            //   !isExecuting &&
+            //   !depositProgress.isRetrying &&
+            //   depositResults.some((r) => r.status !== "success")
+            // }
+            // onRetryAllFailed={handleRetryAllFailed}
+            //      onReset={handleResetAll}
+            // executeLocked={executeLocked}
+          />
+        ) : (
+          <DepositTabPlaceholder />
+        )}
+      </OperationTabs>
+    </div>
+  );
+}
 
-                <div className="space-y-3 max-w-sm mx-auto">
-                  <p className="text-gray-400 text-sm leading-relaxed">
-                    We're working hard to bring you secure and efficient
-                    withdrawal functionality.
-                  </p>
-                  <div className="border-t border-white/10 pt-3">
-                    <p className="text-xs text-gray-500 font-mono uppercase tracking-wide">
-                      Continue depositing to your vault
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </OperationTabs>
+function DepositTabPlaceholder() {
+  return (
+    <div className="relative overflow-hidden border border-white/10 bg-gradient-to-br from-gray-900/30 to-gray-800/20 backdrop-blur-sm">
+      <div className="relative z-10 p-8 sm:p-12 text-center space-y-6">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <h3 className="text-lg font-mono font-semibold text-white uppercase tracking-wide">
+              Withdraw Feature
+            </h3>
+            <p className="text-teal-400 text-sm font-mono uppercase tracking-wide">
+              Coming Soon
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3 max-w-sm mx-auto">
+          <p className="text-gray-400 text-sm leading-relaxed">
+            We're working hard to bring you secure and efficient withdrawal
+            functionality.
+          </p>
+          <div className="border-t border-white/10 pt-3">
+            <p className="text-xs text-gray-500 font-mono uppercase tracking-wide">
+              Continue depositing to your vault
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAccount } from "wagmi";
 import { SupportedChainId, SUPPORTED_CHAINS } from "@/constant/chains";
 import { getUsdc } from "@/constant/tokens";
 import { useChainBalances } from "@/hooks";
 import { useInputValidation } from "@/hooks/useInputValidation";
-import { ChainInput, ChainDropdown, ExecuteButton } from "@/components/ui";
+import { useGasEstimation } from "@/hooks/useGasEstimation";
+import {
+  ChainInput,
+  ChainDropdown,
+  ExecuteButton,
+  DepositSummary,
+} from "@/components/ui";
+import { formatUnits, parseUnits } from "viem/utils";
 
 interface DepositInputProps {
   inputs: Record<SupportedChainId, string>;
@@ -62,7 +69,35 @@ export function DepositInputV2({
   const { validChains, canProceed, firstError, hasEmptyAmounts } =
     useInputValidation(validationInputs);
 
-  const isButtonDisabled = !canProceed || disabled || isProcessing;
+  const activeChainIds = Array.from(activeChains).filter((chainId) => {
+    const amount = inputs[chainId] || "";
+    const numericAmount = Number(amount);
+    return amount && Number.isFinite(numericAmount) && numericAmount > 0;
+  });
+
+  const hasAnyAmount = activeChainIds.length > 0;
+
+  // Prepare gas estimation data
+  const chainAmountsForGas = Array.from(activeChains)
+    .map((chainId) => ({
+      chainId,
+      amount: inputs[chainId] || "",
+    }))
+    .filter((item) => item.amount && Number(item.amount) > 0);
+
+  const {
+    gasEstimates,
+    totalGasCostFormattedETH,
+    isLoading: isGasLoading,
+    hasErrors: hasGasErrors,
+    needsApprovalOnAnyChain,
+    allChainsApproved,
+    canProceedWithDeposit,
+  } = useGasEstimation({
+    chainAmounts: chainAmountsForGas,
+    enabled: hasAnyAmount && address !== undefined,
+  });
+
   const availableChains = SUPPORTED_CHAINS.filter(
     (chainId) => !activeChains.has(chainId)
   );
@@ -90,6 +125,35 @@ export function DepositInputV2({
     const validation = getValidationForChain(chainId);
     return validation?.error ? [validation.error] : [];
   };
+
+  const getTotalAmount = () => {
+    try {
+      const chainAmounts = Array.from(activeChains)
+        .map((chainId) => ({
+          chainId,
+          amount: inputs[chainId] || "",
+        }))
+        .filter(({ amount }) => amount && Number(amount) > 0);
+
+      if (chainAmounts.length === 0) {
+        return "0";
+      }
+
+      const total = chainAmounts.reduce((sum, { chainId, amount }) => {
+        const usdcDecimals = getUsdc(chainId).decimals;
+        const amountInWei = parseUnits(amount, usdcDecimals);
+        return sum + amountInWei;
+      }, 0n);
+
+      const firstChain = chainAmounts[0].chainId;
+      const usdcDecimals = getUsdc(firstChain).decimals;
+      return formatUnits(total, usdcDecimals);
+    } catch {
+      return "0";
+    }
+  };
+
+  const totalAmount = useMemo(() => getTotalAmount(), [activeChains, inputs]);
 
   return (
     <div className="space-y-6">
@@ -137,21 +201,39 @@ export function DepositInputV2({
           );
         })}
       </div>
+      {hasAnyAmount && (
+        <>
+          <DepositSummary
+            activeChainIds={activeChainIds}
+            totalAmount={totalAmount}
+            gasEstimates={gasEstimates}
+            totalGasCost={totalGasCostFormattedETH}
+            isGasLoading={isGasLoading}
+            gasError={hasGasErrors}
+            needsApprovalOnAnyChain={needsApprovalOnAnyChain}
+            allChainsApproved={allChainsApproved}
+          />
 
-      <ExecuteButton
-        onClick={onExecuteDeposit}
-        disabled={isButtonDisabled}
-        isProcessing={isProcessing}
-        text={
-          isProcessing
-            ? "Processing Deposit..."
-            : firstError && !hasEmptyAmounts
-            ? firstError
-            : canProceed
-            ? "Execute Deposit"
-            : "Enter Amount to Deposit"
-        }
-      />
+          <div className="w-1/3 ml-auto">
+            <ExecuteButton
+              onClick={onExecuteDeposit}
+              disabled={!canProceedWithDeposit || disabled || isProcessing}
+              isProcessing={isProcessing}
+              text={
+                isProcessing
+                  ? "Processing Deposit..."
+                  : needsApprovalOnAnyChain
+                  ? "Approve tokens"
+                  : firstError && !hasEmptyAmounts
+                  ? firstError
+                  : canProceedWithDeposit
+                  ? "Execute Deposit"
+                  : "Enter Amount to Deposit"
+              }
+            />
+          </div>
+        </>
+      )}
 
       {!address && (
         <div className="text-center text-gray-400 text-sm">

@@ -138,6 +138,7 @@ export const ChainInputSchema = z
         ctx.addIssue({
           code: "custom",
           message: "Amount exceeds available balance",
+          path: ["amount"],
           params: { reasonCode: ValidationReasonCode.AMOUNT_EXCEEDS_BALANCE },
         });
         return z.NEVER;
