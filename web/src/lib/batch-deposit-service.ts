@@ -3,6 +3,7 @@ import { erc20Abi } from "viem";
 import {
   readContract,
   writeContract,
+  simulateContract,
   switchChain,
   waitForTransactionReceipt,
   getAccount,
@@ -92,7 +93,7 @@ export interface BatchDepositService {
 export function createBatchDepositService(
   config: BatchDepositConfig = DEFAULT_CONFIG
 ): BatchDepositService {
-  const account = getAccount(wagmiConfig as any);
+  const account = getAccount(wagmiConfig);
   if (!account.address) {
     throw new Error("No wallet connected");
   }
@@ -125,7 +126,7 @@ export function createBatchDepositService(
   async function switchToChain(chainId: SupportedChainId): Promise<void> {
     await retryOperation(
       async () => {
-        await switchChain(wagmiConfig as any, { chainId });
+        await switchChain(wagmiConfig, { chainId });
         await sleep(1000);
       },
       config.retryAttempts,
@@ -143,7 +144,7 @@ export function createBatchDepositService(
     try {
       const allowance = await retryOperation(
         () =>
-          readContract(wagmiConfig as any, {
+          readContract(wagmiConfig, {
             address: tokenAddress,
             abi: erc20Abi,
             functionName: "allowance",
@@ -166,15 +167,22 @@ export function createBatchDepositService(
     spenderAddress: Address,
     amount: bigint
   ): Promise<Hash> {
-    const submitTx = async () =>
-      writeContract(wagmiConfig as any, {
-        address: tokenAddress,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [spenderAddress, amount],
-        account: userAddress,
-        chainId,
-      });
+    const { request } = await retryOperation(
+      () =>
+        simulateContract(wagmiConfig, {
+          address: tokenAddress,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [spenderAddress, amount],
+          account: userAddress,
+          chainId,
+        }),
+      2,
+      500,
+      `Approval simulation for chain ${chainId}`
+    );
+
+    const submitTx = async () => writeContract(wagmiConfig, request);
 
     let hash: Hash;
     try {
@@ -198,7 +206,7 @@ export function createBatchDepositService(
     });
 
     await retryOperation(
-      () => waitForTransactionReceipt(wagmiConfig as any, { hash, chainId }),
+      () => waitForTransactionReceipt(wagmiConfig, { hash, chainId }),
       config.retryAttempts,
       config.retryDelayMs,
       "Approval confirmation"
@@ -218,15 +226,22 @@ export function createBatchDepositService(
     tokenAddress: Address,
     amount: bigint
   ): Promise<Hash> {
-    const submitTx = async () =>
-      writeContract(wagmiConfig as any, {
-        address: vaultAddress,
-        abi: simpleVaultAbi,
-        functionName: "deposit",
-        args: [tokenAddress, amount],
-        account: userAddress,
-        chainId,
-      });
+    const { request } = await retryOperation(
+      () =>
+        simulateContract(wagmiConfig, {
+          address: vaultAddress,
+          abi: simpleVaultAbi,
+          functionName: "deposit",
+          args: [tokenAddress, amount],
+          account: userAddress,
+          chainId,
+        }),
+      2,
+      500,
+      `Deposit simulation for chain ${chainId}`
+    );
+
+    const submitTx = async () => writeContract(wagmiConfig, request);
 
     let hash: Hash;
     try {
@@ -250,7 +265,7 @@ export function createBatchDepositService(
     });
 
     await retryOperation(
-      () => waitForTransactionReceipt(wagmiConfig as any, { hash, chainId }),
+      () => waitForTransactionReceipt(wagmiConfig, { hash, chainId }),
       config.retryAttempts,
       config.retryDelayMs,
       "Deposit confirmation"
