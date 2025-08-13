@@ -1,86 +1,91 @@
 "use client";
 
-import Image from "next/image";
-import { getTokenLogo, getChainLogo } from "@/lib/tokens";
-import { cn } from "@/lib/utils";
-import type { SupportedChainId } from "@/constant/contracts";
+import {
+  ChainsList,
+  TotalAmountDisplay,
+  TransactionEstimate,
+  ApprovalSection,
+} from "./deposit-summary";
+import type { SupportedChainId } from "@/constant/chains";
+import type { GasEstimateData } from "@/hooks/useGasEstimation";
+
+interface ChainOperationState {
+  isOperating: boolean;
+  operationType: "approval" | "deposit" | "confirming" | null;
+  error?: string | null;
+  isUserCancellation?: boolean;
+}
 
 interface DepositSummaryProps {
   activeChainIds: SupportedChainId[];
   totalAmount: string;
+  gasEstimates?: GasEstimateData[];
+  totalGasCost?: string;
+  gasError?: boolean;
+  needsApprovalOnAnyChain?: boolean;
+  allChainsApproved?: boolean;
+  hasAllowanceLoading?: boolean;
+  hasAllowanceErrors?: boolean;
+  allAllowancesLoaded?: boolean;
+  onApprove?: (chainId: number) => void;
+  onDeposit?: (chainId: number) => void;
+  onRetry?: (chainId: number) => void;
+  onBatchExecute?: () => void;
+  getChainState?: (chainId: SupportedChainId) => ChainOperationState;
+  getChainTransactions?: (chainId: SupportedChainId) => {
+    approvalTxHash?: `0x${string}`;
+    depositTxHash?: `0x${string}`;
+  };
+  clearError?: (chainId: SupportedChainId) => void;
 }
 
 export function DepositSummary({
   activeChainIds,
   totalAmount,
+  gasEstimates = [],
+  totalGasCost: _totalGasCost = "0",
+  gasError: _gasError = false,
+  needsApprovalOnAnyChain = false,
+  allChainsApproved: _allChainsApproved = true,
+  hasAllowanceLoading = false,
+  hasAllowanceErrors = false,
+  allAllowancesLoaded = true,
+  onApprove,
+  onDeposit,
+  onRetry,
+  onBatchExecute,
+  getChainState,
+  getChainTransactions,
+  clearError,
 }: DepositSummaryProps) {
   const activeChainCount = activeChainIds.length;
 
   return (
-    <div className="border border-teal-500/30 bg-teal-500/5 p-4">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-400 uppercase tracking-wide">
-            Active Chains
-          </span>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center -space-x-1">
-              {activeChainIds.map((chainId, index) => {
-                const logo = getChainLogo(chainId);
-                return (
-                  <div
-                    key={chainId}
-                    className={cn(
-                      "relative rounded-full border-2 border-gray-800 bg-gray-800",
-                      index > 0 && "z-10"
-                    )}
-                    style={{ zIndex: activeChainIds.length - index }}
-                  >
-                    {logo && (
-                      <Image
-                        src={logo}
-                        alt={`Chain ${chainId}`}
-                        width={20}
-                        height={20}
-                        className="rounded-full"
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <span className="text-white font-mono text-xs uppercase">
-              {activeChainCount} CHAIN{activeChainCount !== 1 ? "S" : ""}
-            </span>
-          </div>
-        </div>
+    <div className="border border-teal-500/30 bg-gradient-to-br from-teal-500/10 to-teal-500/5 backdrop-blur-sm p-6 shadow-lg">
+      <div className="space-y-6">
+        <ChainsList activeChainIds={activeChainIds} />
 
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-400 uppercase tracking-wide">
-            Total Amount
-          </span>
-          <div className="flex items-center gap-1.5">
-            <Image
-              src={getTokenLogo("USDC")}
-              alt="USDC"
-              width={16}
-              height={16}
-              className="rounded-full"
-            />
-            <span className="text-white font-mono font-semibold">
-              {totalAmount} USDC
-            </span>
-          </div>
-        </div>
+        <TotalAmountDisplay totalAmount={totalAmount} />
 
-        <div className="flex flex-col md:flex-row gap-2 mt-10 md:mt-0 md:items-center justify-between text-xs">
-          <span className="text-gray-500 uppercase tracking-wide">
-            Estimated Transactions
-          </span>
-          <span className="text-gray-400 font-mono uppercase">
-            {activeChainCount * 2} (APPROVAL + DEPOSIT PER CHAIN)
-          </span>
-        </div>
+        <TransactionEstimate
+          gasEstimates={gasEstimates}
+          activeChainCount={activeChainCount}
+        />
+
+        <ApprovalSection
+          gasEstimates={gasEstimates}
+          needsApprovalOnAnyChain={needsApprovalOnAnyChain}
+          hasAllowanceLoading={hasAllowanceLoading}
+          hasAllowanceErrors={hasAllowanceErrors}
+          allAllowancesLoaded={allAllowancesLoaded}
+          onApprove={onApprove}
+          onDeposit={onDeposit}
+          onRetry={onRetry}
+          onBatchExecute={onBatchExecute}
+          getChainState={getChainState}
+          getChainTransactions={getChainTransactions}
+          clearError={clearError}
+        />
       </div>
     </div>
   );

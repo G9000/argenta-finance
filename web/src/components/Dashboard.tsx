@@ -9,11 +9,12 @@ import {
   SupportedChainId,
   SUPPORTED_CHAINS,
 } from "@/constant/chains";
-import { parseAmountToBigInt } from "@/lib/vault-operations";
+
 import { useBatchDepositValidation } from "@/hooks";
 import { useBatchDeposit } from "@/hooks/useBatchDeposit";
+import { useInputValidation } from "@/hooks/useInputValidation";
 import { OperationTabs } from "./OperationTabs";
-import { DepositInput } from "./DepositInput";
+import { DepositInputV2 } from "./ui/DepositInputV2";
 import { BatchOperationProgress } from "./BatchOperationProgress";
 import { PortfolioTabs } from "./PortfolioTabs";
 import { TransactionHistory } from "./TransactionHistory";
@@ -46,8 +47,19 @@ export function Dashboard() {
     updateAmount: updateDepositAmount,
     setMaxAmount: setDepositMaxAmount,
     clearAll: clearDepositAmounts,
-    getValidChainAmounts,
   } = useBatchDepositValidation();
+
+  // Simple input validation
+  const inputsForValidation = SUPPORTED_CHAINS.map((chainId) => ({
+    chainId,
+    amount: batchState.inputs[chainId] || "",
+  }));
+
+  const {
+    validChains,
+    canProceed,
+    isLoading: _validationLoading,
+  } = useInputValidation(inputsForValidation);
 
   const {
     executeBatch,
@@ -63,7 +75,7 @@ export function Dashboard() {
   const [showDepositProgress, setShowDepositProgress] = useState(false);
   const [depositCompletedSuccessfully, setDepositCompletedSuccessfully] =
     useState(false);
-  const [executeLocked, setExecuteLocked] = useState(false);
+  const [_executeLocked, setExecuteLocked] = useState(false);
 
   const [lastAttemptedAmounts, setLastAttemptedAmounts] = useState<
     Record<SupportedChainId, string>
@@ -97,11 +109,7 @@ export function Dashboard() {
 
         if (hasSuccessfulDeposits) {
           queryClient.invalidateQueries({
-            queryKey: ["readContract"],
-          });
-
-          queryClient.invalidateQueries({
-            queryKey: ["readContracts"],
+            predicate: (q) => (q as any).meta?.scopeKey === "balances",
           });
 
           logger.debug("Invalidated balance queries after successful deposits");
@@ -131,11 +139,7 @@ export function Dashboard() {
 
       if (result.status === "success") {
         queryClient.invalidateQueries({
-          queryKey: ["readContract"],
-        });
-
-        queryClient.invalidateQueries({
-          queryKey: ["readContracts"],
+          predicate: (q) => (q as any).meta?.scopeKey === "balances",
         });
 
         logger.debug(
@@ -151,55 +155,19 @@ export function Dashboard() {
   };
 
   const handleUnifiedDeposit = async () => {
-    const validAmounts = getValidChainAmounts();
-    if (validAmounts.length === 0) return;
-
-    logger.debug("Starting deposit for", validAmounts.length, "chains");
-
-    setLastAttemptedAmounts((prev) => {
-      const next = { ...prev };
-      for (const { chainId, amount } of validAmounts) {
-        next[chainId as SupportedChainId] = amount;
-      }
-      return next;
-    });
-
-    const chainAmounts: {
-      chainId: SupportedChainId;
-      amount: string;
-      amountWei: bigint;
-    }[] = [];
-    const parseErrors: {
-      chainId: SupportedChainId;
-      amount: string;
-      reason: string;
-    }[] = [];
-
-    for (const { chainId, amount } of validAmounts) {
-      try {
-        const amountWei = parseAmountToBigInt(amount, chainId);
-        logger.debug(
-          `Parsed amount for chain ${chainId}: ${amount} -> ${amountWei.toString()} wei`
-        );
-        chainAmounts.push({ chainId, amount, amountWei });
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        logger.error(`Failed to parse amount for chain ${chainId}:`, reason);
-        parseErrors.push({ chainId, amount, reason });
-      }
+    if (!canProceed || validChains.length === 0) {
+      logger.warn("Cannot proceed - validation failed or no valid chains");
+      return;
     }
 
-    if (parseErrors.length > 0) {
-      const summary = parseErrors
-        .map(
-          (e) =>
-            `chain ${e.chainId}: "${e.amount}" (${e.reason || "parse failed"})`
-        )
-        .join("; ");
-      const aggregatedMessage = `Invalid amount(s) detected: ${summary}`;
-      logger.error(aggregatedMessage);
-      throw new Error(aggregatedMessage);
-    }
+    logger.debug("Starting deposit for", validChains.length, "chains");
+
+    // Convert validated chains to execution format
+    const chainAmounts = validChains.map(({ chainId, amount, amountWei }) => ({
+      chainId,
+      amount,
+      amountWei,
+    }));
 
     logger.debug("Final chainAmounts:", chainAmounts);
 
@@ -230,8 +198,9 @@ export function Dashboard() {
         const result = await retryChain(r.chainId as SupportedChainId, amount);
         logger.debug(`Retry-all: chain ${r.chainId} -> ${result.status}`);
         if (result.status === "success") {
-          queryClient.invalidateQueries({ queryKey: ["readContract"] });
-          queryClient.invalidateQueries({ queryKey: ["readContracts"] });
+          queryClient.invalidateQueries({
+            predicate: (q) => (q as any).meta?.scopeKey === "balances",
+          });
         }
       } catch (err) {
         logger.error(`Retry-all: chain ${r.chainId} failed`, err);
@@ -239,7 +208,7 @@ export function Dashboard() {
     }
   };
 
-  const handleResetAll = () => {
+  const _handleResetAll = () => {
     try {
       cancelDeposit();
     } catch {}
@@ -279,22 +248,16 @@ export function Dashboard() {
         <OperationTabs activeTab={activeTab} onTabChange={setActiveTab}>
           {activeTab === OPERATION_TYPES.DEPOSIT ? (
             <div className="space-y-4">
-              <DepositInput
-                batchState={batchState}
+              <DepositInputV2
+                inputs={batchState.inputs}
                 onAmountChange={updateDepositAmount}
                 onMaxClick={setDepositMaxAmount}
                 onExecuteDeposit={handleUnifiedDeposit}
-                disabled={isExecuting || depositProgress.isRetrying}
+                disabled={
+                  isExecuting || depositProgress.isRetrying || !canProceed
+                }
                 isProcessing={isExecuting || depositProgress.isRetrying}
                 selectedChainId={selectedChainId}
-                canRetryAll={
-                  !isExecuting &&
-                  !depositProgress.isRetrying &&
-                  depositResults.some((r) => r.status !== "success")
-                }
-                onRetryAllFailed={handleRetryAllFailed}
-                onReset={handleResetAll}
-                executeLocked={executeLocked}
               />
             </div>
           ) : (

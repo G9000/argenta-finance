@@ -41,6 +41,7 @@ export function useChainBalances({
     query: {
       enabled: Boolean(userAddress && enabled),
       refetchInterval: 5000,
+      meta: { scopeKey: "balances" },
     },
   });
 
