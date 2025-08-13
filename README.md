@@ -35,8 +35,30 @@ This project was built with a focus on **modularity**, **multi-chain support**, 
 **Trade-offs:**
 
 - Transaction state (in-progress or completed) is not persisted; it is lost on a hard refresh. If given more time, I would implement state persistence in Zustand so that users can resume transactions after a page reload.
+- 
 
----
+## Game Plan for Fixing Multi-Chain Deposit State Issues
+
+### 1. Centralize State Management
+- Move all multi-chain deposit state into a **single global store** 
+- Persist across refreshes for:
+  - `chainOperations` – per-chain status (approving, depositing, confirming).
+  - `chainTransactions` – tx hashes and confirmation status.
+  - `pendingOps` – unsent or queued operations.
+
+### 2. Single Global Queue
+- Store one **PQueue** in the global store with `concurrency: 1` to guarantee sequential execution.
+- Add per-chain mutexes in the store to prevent overlapping operations on the same chain.
+
+### 3. Resume After Refresh
+- On app load:
+  - Re-check persisted `approvalTxHash` and `depositTxHash` with `waitForTransactionReceipt`.
+  - Update UI automatically when confirmation arrives.
+- If `pendingOps` are unsigned, prompt user to sign again.
+
+### 4. Prevent Race Conditions
+- Wrap each chain execution in that chain’s mutex lock.
+- Support clean cancellation via `AbortController` if user aborts mid-flow.
 
 ## Requirements
 
@@ -44,7 +66,6 @@ This project was built with a focus on **modularity**, **multi-chain support**, 
 - pnpm (recommended) or npm
 - Wallet with testnet USDC (Sepolia and Sei). Currently, I have only tested on MetaMask due to constraint
 
----
 
 ## Quick Start
 
