@@ -88,6 +88,49 @@ pnpm install               # or npm install / yarn
 pnpm start                 # Runs transfer.js to bridge USDC to Sei Testnet
 ```
 
+
+# Deposit Flow Overview
+
+## Automatic Mode
+1. **Allowance Check**  
+   - For each selected chain, the system checks if the allowance is enough for the deposit amount.  
+   - If the allowance is sufficient, the process moves directly to the deposit step for that chain.  
+   - If the allowance is insufficient, the chain enters the approval process first.
+
+2. **Approval Step** *(only for chains needing it)*  
+   - The system prompts the user to approve the vault to use the specified tokens.  
+   - After the user confirms in the wallet, the approval transaction is processed.  
+   - Once the approval is confirmed on-chain, the process continues automatically to the deposit step for that chain.
+
+3. **Deposit Step**  
+   - The system prompts the user to confirm the deposit of tokens into the vault.  
+   - After confirmation, the deposit transaction is processed.  
+   - Once the deposit is confirmed on-chain, the vault balance updates for that chain.
+
+
+## Manual Mode
+- The user handles each step manually for each chain:  
+  1. Approve tokens (if allowance is insufficient).  
+  2. Deposit tokens.  
+- This mode provides complete control over amounts and timing of approvals.
+
+
+## When Allowance Is Already Enough
+- Any chain with sufficient allowance skips the approval step and proceeds directly to the deposit step.
+
+
+## Error Handling
+- **Transaction Rejected in Wallet**  
+  - The process for that chain stops immediately and can be retried from the failed step.
+- **Transaction Failure on Network**  
+  - The system prompts the user to switch to the correct chain before continuing.
+- **Insufficient Gas Funds**  
+  - The system checks beforehand and notifies the user to top up the required native token before starting.
+
+
+
+
+
 ## Why We Use `createBatchDepositService` instead of WAGMI hook
 
 PS: THIS IS BEFORE I KNEW WagmiCore exists soooo yeah.
