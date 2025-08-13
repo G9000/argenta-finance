@@ -5,6 +5,11 @@ import { getChainLogo } from "@/lib/tokens";
 import { getChainName, type SupportedChainId } from "@/constant/chains";
 import type { GasEstimateData } from "@/hooks/useGasEstimation";
 import { getTransactionUrl, shortenTxHash } from "@/lib/explorer";
+import {
+  useChainState,
+  useChainTransactions,
+  useOperationsStore,
+} from "@/stores/operationsStore";
 
 interface ChainOperationState {
   isOperating: boolean;
@@ -20,6 +25,7 @@ interface ChainApprovalCardProps {
   onApprove?: (chainId: number) => void;
   onDeposit?: (chainId: number) => void;
   onRetry?: (chainId: number) => void;
+  // Legacy props for backward compatibility
   getChainState?: (chainId: SupportedChainId) => ChainOperationState;
   getChainTransactions?: (chainId: SupportedChainId) => {
     approvalTxHash?: `0x${string}`;
@@ -35,21 +41,21 @@ export function ChainApprovalCard({
   onApprove,
   onDeposit,
   onRetry,
-  getChainState,
-  getChainTransactions,
-  clearError,
+  getChainState: propGetChainState,
+  getChainTransactions: propGetChainTransactions,
+  clearError: propClearError,
 }: ChainApprovalCardProps) {
   const chainLogo = getChainLogo(estimate.chainId);
   const approvalCost = estimate.approvalGas?.estimatedCostFormatted || "0";
   const depositCost = estimate.depositGas?.estimatedCostFormatted || "0";
 
+  // Use store hooks with prop fallbacks for backward compatibility
+  const storeChainState = useChainState(estimate.chainId);
+  const storeChainTransactions = useChainTransactions(estimate.chainId);
+  const store = useOperationsStore();
+
   // Get chain-specific operation state
-  const chainState = getChainState?.(estimate.chainId) || {
-    isOperating: false,
-    operationType: null,
-    error: null,
-    isUserCancellation: false,
-  };
+  const chainState = propGetChainState?.(estimate.chainId) || storeChainState;
 
   const isThisChainOperating = chainState.isOperating;
   const isApproving =
@@ -64,7 +70,9 @@ export function ChainApprovalCard({
   const isUserCancellation = hasError && chainState.isUserCancellation;
 
   // Get transaction hashes for this chain
-  const chainTransactions = getChainTransactions?.(estimate.chainId) || {};
+  const chainTransactions =
+    propGetChainTransactions?.(estimate.chainId) || storeChainTransactions;
+  const clearError = propClearError || store.clearChainError;
   const { approvalTxHash, depositTxHash, depositConfirmedTxHash } =
     chainTransactions as any;
 
@@ -84,7 +92,7 @@ export function ChainApprovalCard({
     if (hasError) {
       // If there's an error, retry the failed operation
       onRetry?.(estimate.chainId);
-      clearError?.(estimate.chainId);
+      clearError(estimate.chainId);
     } else if (estimate.hasEnoughAllowance) {
       // If already approved, just deposit
       onDeposit?.(estimate.chainId);
@@ -290,7 +298,7 @@ export function ChainApprovalCard({
             }`}
             onClick={() => {
               onRetry?.(estimate.chainId);
-              clearError?.(estimate.chainId);
+              clearError(estimate.chainId);
             }}
             disabled={isApproving || isDepositing || isConfirming}
           >

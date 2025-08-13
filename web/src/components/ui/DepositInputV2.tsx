@@ -6,6 +6,12 @@ import { SupportedChainId, SUPPORTED_CHAINS } from "@/constant/chains";
 import { getUsdc } from "@/constant/tokens";
 import { useChainBalances } from "@/hooks";
 import { useMultiChainOperations } from "@/hooks/useMultiChainOperations";
+import {
+  useIsAnyChainOperating,
+  useOperationsStore,
+  getChainState,
+  getChainTransactions,
+} from "@/stores/operationsStore";
 import { useInputValidation } from "@/hooks/useInputValidation";
 import { useGasEstimation } from "@/hooks/useGasEstimation";
 import {
@@ -61,23 +67,22 @@ export function DepositInputV2({
 }: DepositInputProps) {
   const { address } = useAccount();
 
-  // Use internal hook as fallback if props not provided (for backward compatibility)
+  // Use new store pattern with prop fallbacks for compatibility
   const {
     queueDeposit: hookQueueDeposit,
     queueApprovalAndDeposit: hookQueueApprovalAndDeposit,
-    getChainState: hookGetChainState,
-    getChainTransactions: hookGetChainTransactions,
-    clearError: hookClearError,
-    isAnyChainOperating: hookIsAnyChainOperating,
   } = useMultiChainOperations();
+  const hookIsAnyChainOperating = useIsAnyChainOperating();
+  const store = useOperationsStore();
+  const hookClearError = store.clearChainError;
 
-  // Use props if provided, otherwise fallback to hook
+  // Use props if provided, otherwise fallback to store/hook
   const queueDeposit = propQueueDeposit || hookQueueDeposit;
   const queueApprovalAndDeposit =
     propQueueApprovalAndDeposit || hookQueueApprovalAndDeposit;
-  const getChainState = propGetChainState || hookGetChainState;
-  const getChainTransactions =
-    propGetChainTransactions || hookGetChainTransactions;
+  const getChainStateFunc = propGetChainState || getChainState;
+  const getChainTransactionsFunc =
+    propGetChainTransactions || getChainTransactions;
   const clearError = propClearError || hookClearError;
   const isAnyChainOperating =
     propIsAnyChainOperating ?? hookIsAnyChainOperating;
@@ -263,7 +268,9 @@ export function DepositInputV2({
       console.log("Retrying operation for chain", chainId, "amount", amount);
 
       // Determine what to retry based on current state
-      const transactions = getChainTransactions(chainId as SupportedChainId);
+      const transactions = getChainTransactionsFunc(
+        chainId as SupportedChainId
+      );
 
       if (transactions.depositConfirmedTxHash) {
         console.log("Nothing to retry (already deposited)");
@@ -351,8 +358,8 @@ export function DepositInputV2({
             onDeposit={handleDeposit}
             onRetry={handleRetry}
             onBatchExecute={onExecuteDeposit}
-            getChainState={getChainState}
-            getChainTransactions={getChainTransactions}
+            getChainState={getChainStateFunc}
+            getChainTransactions={getChainTransactionsFunc}
             clearError={clearError}
           />
 

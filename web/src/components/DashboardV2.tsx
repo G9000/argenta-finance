@@ -7,6 +7,13 @@ import { useAccount, useChainId } from "wagmi";
 import { isSupportedChainId, SupportedChainId } from "@/constant/chains";
 import { useBatchDepositValidation } from "@/hooks";
 import { useMultiChainOperations } from "@/hooks/useMultiChainOperations";
+import {
+  useIsProcessingQueue,
+  useIsAnyChainOperating,
+  useOperationsStore,
+  getChainState,
+  getChainTransactions,
+} from "@/stores/operationsStore";
 import { OperationTabs } from "./OperationTabs";
 import { DepositInputV2 } from "./ui/DepositInputV2";
 import { OperationType } from "@/types/ui-state";
@@ -38,16 +45,18 @@ export function DashboardV2() {
 
   const {
     queueBatchOperations,
-    processQueue,
     clearQueue,
-    isProcessingQueue,
-    isAnyChainOperating,
-    getChainState,
-    getChainTransactions,
-    clearError,
     queueDeposit,
     queueApprovalAndDeposit,
   } = useMultiChainOperations();
+
+  // Import store hooks for better performance
+  const isProcessingQueue = useIsProcessingQueue();
+  const isAnyChainOperating = useIsAnyChainOperating();
+  const store = useOperationsStore();
+
+  // Store actions
+  const clearError = store.clearChainError;
 
   // Keep selectedChainId in sync especially when switching from the nav
   useEffect(() => {
@@ -66,17 +75,12 @@ export function DashboardV2() {
       // Clear any existing queue
       clearQueue();
 
-      // Queue all operations in a single state update
+      // Queue all operations - processing starts automatically
       queueBatchOperations(validAmounts);
 
-      // Add a small delay to ensure state updates are applied
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Process the queue
-      await processQueue();
-      logger.debug("Unified deposit process completed");
+      logger.debug("Unified deposit operations queued");
     } catch (error) {
-      logger.error("Failed to execute unified deposit:", error);
+      logger.error("Failed to queue unified deposit:", error);
     }
   };
 
