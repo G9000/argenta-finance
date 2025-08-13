@@ -40,9 +40,8 @@ interface DepositInputProps {
   getChainTransactions?: (chainId: SupportedChainId) => any;
   clearError?: (chainId: SupportedChainId) => void;
   isAnyChainOperating?: boolean;
-  approveChain?: (chainId: SupportedChainId, amount: string) => Promise<any>;
-  depositChain?: (chainId: SupportedChainId, amount: string) => Promise<any>;
-  retryOperation?: (chainId: SupportedChainId, amount: string) => Promise<any>;
+  queueDeposit?: (chainId: SupportedChainId, amount: string) => void;
+  queueApprovalAndDeposit?: (chainId: SupportedChainId, amount: string) => void;
 }
 
 export function DepositInputV2({
@@ -57,17 +56,15 @@ export function DepositInputV2({
   getChainTransactions: propGetChainTransactions,
   clearError: propClearError,
   isAnyChainOperating: propIsAnyChainOperating,
-  approveChain: propApproveChain,
-  depositChain: propDepositChain,
-  retryOperation: propRetryOperation,
+  queueDeposit: propQueueDeposit,
+  queueApprovalAndDeposit: propQueueApprovalAndDeposit,
 }: DepositInputProps) {
   const { address } = useAccount();
 
   // Use internal hook as fallback if props not provided (for backward compatibility)
   const {
-    approveChain: hookApproveChain,
-    depositChain: hookDepositChain,
-    retryOperation: hookRetryOperation,
+    queueDeposit: hookQueueDeposit,
+    queueApprovalAndDeposit: hookQueueApprovalAndDeposit,
     getChainState: hookGetChainState,
     getChainTransactions: hookGetChainTransactions,
     clearError: hookClearError,
@@ -75,9 +72,9 @@ export function DepositInputV2({
   } = useMultiChainOperations();
 
   // Use props if provided, otherwise fallback to hook
-  const approveChain = propApproveChain || hookApproveChain;
-  const depositChain = propDepositChain || hookDepositChain;
-  const retryOperation = propRetryOperation || hookRetryOperation;
+  const queueDeposit = propQueueDeposit || hookQueueDeposit;
+  const queueApprovalAndDeposit =
+    propQueueApprovalAndDeposit || hookQueueApprovalAndDeposit;
   const getChainState = propGetChainState || hookGetChainState;
   const getChainTransactions =
     propGetChainTransactions || hookGetChainTransactions;
@@ -222,17 +219,17 @@ export function DepositInputV2({
     }
 
     try {
-      console.log("Starting approval for chain", chainId, "amount", amount);
-      await approveChain(chainId as SupportedChainId, amount);
-      console.log("Approval completed for chain", chainId);
-
-      // Automatically proceed to deposit after successful approval
-      console.log("Auto-proceeding to deposit for chain", chainId);
-      await depositChain(chainId as SupportedChainId, amount);
-      console.log("Auto-deposit completed for chain", chainId);
+      console.log(
+        "Starting approval and deposit for chain",
+        chainId,
+        "amount",
+        amount
+      );
+      queueApprovalAndDeposit(chainId as SupportedChainId, amount);
+      console.log("Queued approval and deposit for chain", chainId);
     } catch (error) {
       // Error is handled by the hook
-      console.error("Approval or deposit failed:", error);
+      console.error("Queue approval and deposit failed:", error);
     }
   };
 
@@ -246,11 +243,11 @@ export function DepositInputV2({
 
     try {
       console.log("Starting deposit for chain", chainId, "amount", amount);
-      await depositChain(chainId as SupportedChainId, amount);
-      console.log("Deposit completed for chain", chainId);
+      queueDeposit(chainId as SupportedChainId, amount);
+      console.log("Queued deposit for chain", chainId);
     } catch (error) {
       // Error is handled by the hook
-      console.error("Deposit failed:", error);
+      console.error("Queue deposit failed:", error);
     }
   };
 
@@ -264,8 +261,26 @@ export function DepositInputV2({
 
     try {
       console.log("Retrying operation for chain", chainId, "amount", amount);
-      await retryOperation(chainId as SupportedChainId, amount);
-      console.log("Retry completed for chain", chainId);
+
+      // Determine what to retry based on current state
+      const transactions = getChainTransactions(chainId as SupportedChainId);
+
+      if (transactions.depositConfirmedTxHash) {
+        console.log("Nothing to retry (already deposited)");
+        return;
+      }
+
+      clearError?.(chainId as SupportedChainId);
+
+      // If approval is confirmed, retry deposit only
+      if (transactions.approvalConfirmedTxHash) {
+        queueDeposit(chainId as SupportedChainId, amount);
+        console.log("Queued deposit retry for chain", chainId);
+      } else {
+        // Retry approval and deposit
+        queueApprovalAndDeposit(chainId as SupportedChainId, amount);
+        console.log("Queued approval and deposit retry for chain", chainId);
+      }
     } catch (error) {
       // Error is handled by the hook
       console.error("Retry failed:", error);

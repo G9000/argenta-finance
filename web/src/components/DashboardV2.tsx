@@ -45,9 +45,8 @@ export function DashboardV2() {
     getChainState,
     getChainTransactions,
     clearError,
-    approveChain,
-    depositChain,
-    retryOperation,
+    queueDeposit,
+    queueApprovalAndDeposit,
   } = useMultiChainOperations();
 
   // Keep selectedChainId in sync especially when switching from the nav
@@ -111,9 +110,8 @@ export function DashboardV2() {
             getChainTransactions={getChainTransactions}
             clearError={clearError}
             isAnyChainOperating={isAnyChainOperating}
-            approveChain={approveChain}
-            depositChain={depositChain}
-            retryOperation={retryOperation}
+            queueDeposit={queueDeposit}
+            queueApprovalAndDeposit={queueApprovalAndDeposit}
           />
         ) : (
           <DepositTabPlaceholder />
