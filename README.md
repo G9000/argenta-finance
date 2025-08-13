@@ -35,7 +35,7 @@ This project was built with a focus on **modularity**, **multi-chain support**, 
 **Trade-offs:**
 
 - Transaction state (in-progress or completed) is not persisted; it is lost on a hard refresh. If given more time, I would implement state persistence in Zustand so that users can resume transactions after a page reload.
-- 
+
 
 ## Game Plan for Fixing Multi-Chain Deposit State Issues
 
