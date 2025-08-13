@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import {
@@ -8,6 +8,9 @@ import {
 } from "@wagmi/core";
 import { erc20Abi } from "viem";
 import type { Hash } from "viem";
+import PQueue from "p-queue";
+import { useDebouncedCallback } from "use-debounce";
+import { Mutex } from "async-mutex";
 
 import { SupportedChainId, getSupportedChainMeta } from "@/constant/chains";
 import { simpleVaultAbi } from "@/generated/wagmi";
@@ -105,7 +108,20 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
   // Mounted/processing guards for async setState safety
   const mountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize p-queue for operation processing
+  const operationQueue = useMemo(
+    () =>
+      new PQueue({
+        concurrency: 1,
+        interval: 100,
+        intervalCap: 1,
+      }),
+    []
+  );
+
+  // Initialize mutex for race condition prevention
+  const processingMutex = useMemo(() => new Mutex(), []);
 
   useEffect(() => {
     return () => {
@@ -113,13 +129,11 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
+      // Clear the p-queue on unmount
+      operationQueue.clear();
+      operationQueue.pause();
     };
-  }, []);
-
-  const processingRef = useRef(false);
+  }, [operationQueue]);
 
   const safeSetState = useCallback(
     (updater: (p: MultiChainOperationState) => MultiChainOperationState) => {
@@ -458,37 +472,54 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
     ]
   );
 
-  const enqueueUnique = useCallback(
-    (op: ChainOperation) => {
-      safeSetState((prev) => {
-        const exists = prev.operationQueue.some(
-          (o) =>
-            o.chainId === op.chainId &&
-            o.type === op.type &&
-            o.amount === op.amount
-        );
-        return exists
-          ? prev
-          : { ...prev, operationQueue: [...prev.operationQueue, op] };
-      });
-    },
-    [safeSetState]
-  );
-
   const queueApproval = useCallback(
     (chainId: SupportedChainId, amount: string) => {
-      const id = `approval-${chainId}-${++operationIdRef.current}`;
-      enqueueUnique({ chainId, type: "approval", amount, priority: 1, id });
+      operationQueue.add(
+        () => executeChainOperation(chainId, "approval", amount),
+        { priority: 2 }
+      );
+
+      // Update state to show operation is queued
+      safeSetState((prev) => ({
+        ...prev,
+        operationQueue: [
+          ...prev.operationQueue,
+          {
+            chainId,
+            type: "approval",
+            amount,
+            priority: 2,
+            id: `approval-${chainId}-${++operationIdRef.current}`,
+          },
+        ],
+      }));
     },
-    [enqueueUnique]
+    [operationQueue, executeChainOperation, safeSetState]
   );
 
   const queueDeposit = useCallback(
     (chainId: SupportedChainId, amount: string) => {
-      const id = `deposit-${chainId}-${++operationIdRef.current}`;
-      enqueueUnique({ chainId, type: "deposit", amount, priority: 2, id });
+      operationQueue.add(
+        () => executeChainOperation(chainId, "deposit", amount),
+        { priority: 1 }
+      );
+
+      // Update state to show operation is queued
+      safeSetState((prev) => ({
+        ...prev,
+        operationQueue: [
+          ...prev.operationQueue,
+          {
+            chainId,
+            type: "deposit",
+            amount,
+            priority: 1,
+            id: `deposit-${chainId}-${++operationIdRef.current}`,
+          },
+        ],
+      }));
     },
-    [enqueueUnique]
+    [operationQueue, executeChainOperation, safeSetState]
   );
 
   const queueApprovalAndDeposit = useCallback(
@@ -502,147 +533,131 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
 
       // Skip redundant approval if already confirmed
       const transactions = getChainTransactions(chainId);
+
       if (!transactions.approvalConfirmedTxHash) {
-        enqueueUnique({
-          chainId,
-          type: "approval",
-          amount,
-          priority: 1,
-          id: `approval-${chainId}-${++operationIdRef.current}`,
-        });
+        // Chain the operations: approval first, then deposit
+        operationQueue.add(
+          async () => {
+            // Execute approval first
+            await executeChainOperation(chainId, "approval", amount);
+
+            // Then immediately queue the deposit with high priority
+            operationQueue.add(
+              () => executeChainOperation(chainId, "deposit", amount),
+              { priority: 10 } // High priority to run next
+            );
+          },
+          { priority: 2 }
+        );
+      } else {
+        // Skip approval, just do deposit
+        operationQueue.add(
+          () => executeChainOperation(chainId, "deposit", amount),
+          { priority: 1 }
+        );
       }
 
-      enqueueUnique({
-        chainId,
-        type: "deposit",
-        amount,
-        priority: 2,
-        id: `deposit-${chainId}-${++operationIdRef.current}`,
+      // Update state to show operations are queued
+      safeSetState((prev) => {
+        const newOperations = [];
+        if (!transactions.approvalConfirmedTxHash) {
+          newOperations.push({
+            chainId,
+            type: "approval" as const,
+            amount,
+            priority: 2,
+            id: `approval-${chainId}-${++operationIdRef.current}`,
+          });
+        }
+        newOperations.push({
+          chainId,
+          type: "deposit" as const,
+          amount,
+          priority: 1,
+          id: `deposit-${chainId}-${++operationIdRef.current}`,
+        });
+
+        return {
+          ...prev,
+          operationQueue: [...prev.operationQueue, ...newOperations],
+        };
       });
     },
-    [enqueueUnique, getChainTransactions]
+    [operationQueue, executeChainOperation, getChainTransactions, safeSetState]
   );
 
   const queueBatchOperations = useCallback(
     (chainAmounts: Array<{ chainId: SupportedChainId; amount: string }>) => {
+      const newOperations: ChainOperation[] = [];
+
       chainAmounts.forEach(({ chainId, amount }, chainIndex) => {
-        const approvalId = `approval-${chainId}-${++operationIdRef.current}`;
-        const depositId = `deposit-${chainId}-${++operationIdRef.current}`;
         const basePriority = chainIndex * 10;
-        enqueueUnique({
+
+        // Add approval operation (higher priority - runs first)
+        operationQueue.add(
+          () => executeChainOperation(chainId, "approval", amount),
+          { priority: basePriority + 2 }
+        );
+        newOperations.push({
           chainId,
           type: "approval",
           amount,
-          priority: basePriority + 1,
-          id: approvalId,
+          priority: basePriority + 2,
+          id: `approval-${chainId}-${++operationIdRef.current}`,
         });
-        enqueueUnique({
+
+        // Add deposit operation (lower priority - runs after approval)
+        operationQueue.add(
+          () => executeChainOperation(chainId, "deposit", amount),
+          { priority: basePriority + 1 }
+        );
+        newOperations.push({
           chainId,
           type: "deposit",
           amount,
-          priority: basePriority + 2,
-          id: depositId,
+          priority: basePriority + 1,
+          id: `deposit-${chainId}-${++operationIdRef.current}`,
         });
       });
+
+      // Update state to show operations are queued
+      safeSetState((prev) => ({
+        ...prev,
+        operationQueue: [...prev.operationQueue, ...newOperations],
+      }));
     },
-    [enqueueUnique]
+    [operationQueue, executeChainOperation, safeSetState]
   );
 
   const processQueue = useCallback(async () => {
-    // Double-check processing guard to prevent race conditions
-    if (processingRef.current) return;
-
-    let currentQueue: ChainOperation[] = [];
-    let shouldProcess = false;
-
-    safeSetState((p) => {
-      // Re-check processing flag inside state update to prevent races
-      if (processingRef.current) return p;
-
-      currentQueue = [...p.operationQueue];
-      if (currentQueue.length === 0) return p;
-
-      // Set both flags atomically
-      processingRef.current = true;
-      shouldProcess = true;
-      return { ...p, isProcessingQueue: true };
-    });
-
-    if (!shouldProcess || currentQueue.length === 0) return;
-
-    const queueToProcess = currentQueue.sort((a, b) => a.priority - b.priority);
+    // Use mutex to prevent race conditions
+    const release = await processingMutex.acquire();
 
     try {
-      const chainsToSkip = new Set<SupportedChainId>();
-      for (const operation of queueToProcess) {
-        if (!processingRef.current) break;
-        if (chainsToSkip.has(operation.chainId)) continue;
+      safeSetState((p) => ({ ...p, isProcessingQueue: true }));
 
-        try {
-          await executeChainOperation(
-            operation.chainId,
-            operation.type,
-            operation.amount
-          );
-          safeSetState((p) => ({
-            ...p,
-            operationQueue: p.operationQueue.filter(
-              (op) => op.id !== operation.id
-            ),
-          }));
-        } catch (e) {
-          console.error(`Queue operation failed for ${operation.chainId}:`, e);
-          // If approval fails, skip subsequent operations for this chain
-          if (operation.type === "approval") {
-            chainsToSkip.add(operation.chainId);
-          }
-          safeSetState((p) => ({
-            ...p,
-            operationQueue: p.operationQueue.filter(
-              (op) =>
-                op.id !== operation.id &&
-                !(
-                  operation.type === "approval" &&
-                  op.chainId === operation.chainId &&
-                  op.type === "deposit"
-                )
-            ),
-          }));
-        }
-      }
+      // p-queue handles the processing automatically, we just need to start it
+      await operationQueue.onIdle();
+
+      // Clear completed operations from state
+      safeSetState((p) => ({ ...p, operationQueue: [] }));
     } finally {
       safeSetState((p) => ({ ...p, isProcessingQueue: false }));
-      processingRef.current = false;
+      release();
     }
-  }, [executeChainOperation, safeSetState]);
-
-  const processQueueRef = useRef(processQueue);
-  processQueueRef.current = processQueue;
+  }, [processingMutex, operationQueue, safeSetState]);
 
   // Debounced queue processing to prevent rapid successive calls
-  const debouncedProcessQueue = useCallback(() => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
+  const debouncedProcessQueue = useDebouncedCallback(() => {
+    if (mountedRef.current && !state.isProcessingQueue) {
+      void processQueue();
     }
-
-    debounceTimeoutRef.current = setTimeout(() => {
-      if (mountedRef.current && !processingRef.current) {
-        void processQueueRef.current();
-      }
-    }, 100);
-  }, []);
+  }, 100);
 
   useEffect(() => {
     if (!state.isProcessingQueue && state.operationQueue.length > 0) {
       debouncedProcessQueue();
     }
-
-    return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-        debounceTimeoutRef.current = null;
-      }
-    };
   }, [
     state.isProcessingQueue,
     state.operationQueue.length,
@@ -650,25 +665,19 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
   ]);
 
   const clearQueue = useCallback(() => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-      debounceTimeoutRef.current = null;
-    }
-
+    operationQueue.clear();
     safeSetState((prev) => ({ ...prev, operationQueue: [] }));
-  }, [safeSetState]);
+  }, [operationQueue, safeSetState]);
 
   const cancelQueue = useCallback(() => {
-    processingRef.current = false;
-
+    // Cancel any ongoing operations
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
 
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-      debounceTimeoutRef.current = null;
-    }
+    // Clear the p-queue
+    operationQueue.clear();
+    operationQueue.pause();
 
     safeSetState((prev) => ({
       ...prev,
@@ -676,7 +685,10 @@ export function useMultiChainOperations(): UseMultiChainOperationsReturn {
       isProcessingQueue: false,
       inFlightChainId: null,
     }));
-  }, [safeSetState]);
+
+    // Resume queue for future operations
+    operationQueue.start();
+  }, [operationQueue, safeSetState]);
 
   const clearError = useCallback(
     (chainId: SupportedChainId) => {
