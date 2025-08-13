@@ -62,8 +62,6 @@ export function ChainApprovalCard({
     isThisChainOperating && chainState.operationType === "approval";
   const isDepositing =
     isThisChainOperating && chainState.operationType === "deposit";
-  const isConfirming =
-    isThisChainOperating && chainState.operationType === "confirming";
 
   // Check if this chain has an error
   const hasError = !!chainState.error;
@@ -73,8 +71,23 @@ export function ChainApprovalCard({
   const chainTransactions =
     propGetChainTransactions?.(estimate.chainId) || storeChainTransactions;
   const clearError = propClearError || store.clearChainError;
-  const { approvalTxHash, depositTxHash, depositConfirmedTxHash } =
-    chainTransactions as any;
+  const {
+    approvalTxHash,
+    depositTxHash,
+    approvalConfirmedTxHash,
+    depositConfirmedTxHash,
+  } = chainTransactions as any;
+
+  const pendingApproval = Boolean(approvalTxHash && !approvalConfirmedTxHash);
+  const pendingDeposit = Boolean(depositTxHash && !depositConfirmedTxHash);
+  const hasPendingTx = pendingApproval || pendingDeposit;
+  const hasApprovedConfirmedAndNoDeposit = Boolean(
+    approvalConfirmedTxHash && !depositConfirmedTxHash
+  );
+
+  const isConfirming =
+    (isThisChainOperating && chainState.operationType === "confirming") ||
+    hasPendingTx;
 
   // Completion logic:
   // Consider the chain completed once a deposit tx hash exists and
@@ -82,7 +95,7 @@ export function ChainApprovalCard({
   // hasEnoughAllowance because allowance can drop to 0 after
   // a successful deposit which would incorrectly show PENDING.
   const actuallyCompleted =
-    Boolean(depositConfirmedTxHash || depositTxHash) &&
+    Boolean(depositConfirmedTxHash) &&
     !isConfirming &&
     !isApproving &&
     !isDepositing;
@@ -109,6 +122,15 @@ export function ChainApprovalCard({
         dot: "bg-red-400",
         text: "text-red-400",
         label: isUserCancellation ? "CANCELLED" : "FAILED",
+      };
+    }
+
+    // If an approval is already confirmed but no deposit yet, treat as ready
+    if (hasApprovedConfirmedAndNoDeposit && !isApproving && !isDepositing) {
+      return {
+        dot: "bg-green-400",
+        text: "text-green-400",
+        label: "READY TO DEPOSIT",
       };
     }
 

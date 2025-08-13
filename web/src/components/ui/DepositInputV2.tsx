@@ -9,17 +9,13 @@ import { useMultiChainOperations } from "@/hooks/useMultiChainOperations";
 import {
   useIsAnyChainOperating,
   useOperationsStore,
+  useHasPendingTransactions,
   getChainState,
   getChainTransactions,
 } from "@/stores/operationsStore";
 import { useInputValidation } from "@/hooks/useInputValidation";
 import { useGasEstimation } from "@/hooks/useGasEstimation";
-import {
-  ChainInput,
-  ChainDropdown,
-  ExecuteButton,
-  DepositSummary,
-} from "@/components/ui";
+import { ChainInput, ChainDropdown, DepositSummary } from "@/components/ui";
 import { formatUnits, parseUnits } from "viem/utils";
 
 // Helper function to validate amount using BigInt for precision
@@ -67,7 +63,6 @@ export function DepositInputV2({
 }: DepositInputProps) {
   const { address } = useAccount();
 
-  // Use new store pattern with prop fallbacks for compatibility
   const {
     queueDeposit: hookQueueDeposit,
     queueApprovalAndDeposit: hookQueueApprovalAndDeposit,
@@ -76,7 +71,6 @@ export function DepositInputV2({
   const store = useOperationsStore();
   const hookClearError = store.clearChainError;
 
-  // Use props if provided, otherwise fallback to store/hook
   const queueDeposit = propQueueDeposit || hookQueueDeposit;
   const queueApprovalAndDeposit =
     propQueueApprovalAndDeposit || hookQueueApprovalAndDeposit;
@@ -84,7 +78,7 @@ export function DepositInputV2({
   const getChainTransactionsFunc =
     propGetChainTransactions || getChainTransactions;
   const clearError = propClearError || hookClearError;
-  const isAnyChainOperating =
+  const _isAnyChainOperating =
     propIsAnyChainOperating ?? hookIsAnyChainOperating;
   const [activeChains, setActiveChains] = useState<Set<SupportedChainId>>(
     new Set([selectedChainId])
@@ -117,19 +111,26 @@ export function DepositInputV2({
     balanceWei: chainBalances[chainId]?.data,
   }));
 
-  const {
-    validChains,
-    canProceed: _canProceed,
-    firstError,
-    hasEmptyAmounts,
-  } = useInputValidation(validationInputs);
+  const { validChains, canProceed: _canProceed } =
+    useInputValidation(validationInputs);
 
   const activeChainIds = Array.from(activeChains).filter((chainId) => {
     const amount = inputs[chainId] || "";
     return isValidAmount(amount, getUsdc(chainId).decimals);
   });
 
-  const hasAnyAmount = activeChainIds.length > 0;
+  const hasPendingTransactions = useHasPendingTransactions();
+  const hasAnyAmount = activeChainIds.length > 0 || hasPendingTransactions;
+
+  // Include chains that have any transactions in store to reflect in summary UI
+  const chainsWithAnyTx = useOperationsStore((s) => s.chainTransactions);
+  const activeChainIdsForSummary = useMemo(() => {
+    const idsFromAmounts = new Set(activeChainIds);
+    Object.keys(chainsWithAnyTx).forEach((id) => {
+      idsFromAmounts.add(Number(id) as SupportedChainId);
+    });
+    return Array.from(idsFromAmounts);
+  }, [activeChainIds, chainsWithAnyTx]);
 
   const chainAmountsForGas = Array.from(activeChains)
     .map((chainId) => ({
@@ -147,7 +148,6 @@ export function DepositInputV2({
     hasErrors: hasGasErrors,
     needsApprovalOnAnyChain,
     allChainsApproved,
-    canProceedWithDeposit,
     hasAllowanceLoading,
     hasAllowanceErrors,
     allAllowancesLoaded,
@@ -217,79 +217,45 @@ export function DepositInputV2({
 
   const handleApprove = async (chainId: number) => {
     const amount = inputs[chainId as SupportedChainId];
-    console.log("handleApprove called", { chainId, amount });
-    if (!amount) {
-      console.log("No amount found for chain", chainId);
-      return;
-    }
 
+    if (!amount) return;
     try {
-      console.log(
-        "Starting approval and deposit for chain",
-        chainId,
-        "amount",
-        amount
-      );
       queueApprovalAndDeposit(chainId as SupportedChainId, amount);
-      console.log("Queued approval and deposit for chain", chainId);
     } catch (error) {
-      // Error is handled by the hook
       console.error("Queue approval and deposit failed:", error);
     }
   };
 
   const handleDeposit = async (chainId: number) => {
     const amount = inputs[chainId as SupportedChainId];
-    console.log("handleDeposit called", { chainId, amount });
-    if (!amount) {
-      console.log("No amount found for chain", chainId);
-      return;
-    }
-
+    if (!amount) return;
     try {
-      console.log("Starting deposit for chain", chainId, "amount", amount);
       queueDeposit(chainId as SupportedChainId, amount);
-      console.log("Queued deposit for chain", chainId);
     } catch (error) {
-      // Error is handled by the hook
       console.error("Queue deposit failed:", error);
     }
   };
 
   const handleRetry = async (chainId: number) => {
     const amount = inputs[chainId as SupportedChainId];
-    console.log("handleRetry called", { chainId, amount });
-    if (!amount) {
-      console.log("No amount found for chain", chainId);
-      return;
-    }
-
+    if (!amount) return;
     try {
-      console.log("Retrying operation for chain", chainId, "amount", amount);
-
-      // Determine what to retry based on current state
       const transactions = getChainTransactionsFunc(
         chainId as SupportedChainId
       );
 
       if (transactions.depositConfirmedTxHash) {
-        console.log("Nothing to retry (already deposited)");
         return;
       }
 
       clearError?.(chainId as SupportedChainId);
 
-      // If approval is confirmed, retry deposit only
       if (transactions.approvalConfirmedTxHash) {
         queueDeposit(chainId as SupportedChainId, amount);
-        console.log("Queued deposit retry for chain", chainId);
       } else {
-        // Retry approval and deposit
         queueApprovalAndDeposit(chainId as SupportedChainId, amount);
-        console.log("Queued approval and deposit retry for chain", chainId);
       }
     } catch (error) {
-      // Error is handled by the hook
       console.error("Retry failed:", error);
     }
   };
@@ -340,54 +306,51 @@ export function DepositInputV2({
           );
         })}
       </div>
-      {hasAnyAmount && (
-        <>
-          <DepositSummary
-            activeChainIds={activeChainIds}
-            totalAmount={totalAmount}
-            gasEstimates={gasEstimates}
-            totalGasCost={totalGasCostFormattedETH}
-            isGasLoading={isGasLoading}
-            gasError={hasGasErrors}
-            needsApprovalOnAnyChain={needsApprovalOnAnyChain}
-            allChainsApproved={allChainsApproved}
-            hasAllowanceLoading={hasAllowanceLoading}
-            hasAllowanceErrors={hasAllowanceErrors}
-            allAllowancesLoaded={allAllowancesLoaded}
-            onApprove={handleApprove}
-            onDeposit={handleDeposit}
-            onRetry={handleRetry}
-            onBatchExecute={onExecuteDeposit}
-            getChainState={getChainStateFunc}
-            getChainTransactions={getChainTransactionsFunc}
-            clearError={clearError}
-          />
 
-          <div className="w-1/3 ml-auto">
-            <ExecuteButton
-              onClick={onExecuteDeposit}
-              disabled={
-                !canProceedWithDeposit ||
-                disabled ||
-                isProcessing ||
-                isAnyChainOperating
-              }
-              isProcessing={isProcessing || isAnyChainOperating}
-              text={
-                isProcessing
-                  ? "Processing Deposit..."
-                  : needsApprovalOnAnyChain
-                  ? "Approve tokens"
-                  : firstError && !hasEmptyAmounts
-                  ? firstError
-                  : canProceedWithDeposit
-                  ? "Execute Deposit"
-                  : "Enter Amount to Deposit"
-              }
-            />
-          </div>
-        </>
-      )}
+      <DepositSummary
+        activeChainIds={activeChainIdsForSummary}
+        totalAmount={totalAmount}
+        gasEstimates={gasEstimates}
+        totalGasCost={totalGasCostFormattedETH}
+        isGasLoading={isGasLoading}
+        gasError={hasGasErrors}
+        needsApprovalOnAnyChain={needsApprovalOnAnyChain}
+        allChainsApproved={allChainsApproved}
+        hasAllowanceLoading={hasAllowanceLoading}
+        hasAllowanceErrors={hasAllowanceErrors}
+        allAllowancesLoaded={allAllowancesLoaded}
+        onApprove={handleApprove}
+        onDeposit={handleDeposit}
+        onRetry={handleRetry}
+        onBatchExecute={onExecuteDeposit}
+        getChainState={getChainStateFunc}
+        getChainTransactions={getChainTransactionsFunc}
+        clearError={clearError}
+      />
+
+      {/* <div className="w-1/3 ml-auto">
+        <ExecuteButton
+          onClick={onExecuteDeposit}
+          disabled={
+            !canProceedWithDeposit ||
+            disabled ||
+            isProcessing ||
+            isAnyChainOperating
+          }
+          isProcessing={isProcessing || isAnyChainOperating}
+          text={
+            isProcessing
+              ? "Processing Deposit..."
+              : needsApprovalOnAnyChain
+              ? "Approve tokens"
+              : firstError && !hasEmptyAmounts
+              ? firstError
+              : canProceedWithDeposit
+              ? "Execute Deposit"
+              : "Enter Amount to Deposit"
+          }
+        />
+      </div> */}
 
       {!address && (
         <div className="text-center text-gray-400 text-sm">

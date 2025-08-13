@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ExecutionModeToggle } from "./ExecutionModeToggle";
 import { ChainApprovalCard } from "./ChainApprovalCard";
 import type { GasEstimateData } from "@/hooks/useGasEstimation";
 import type { SupportedChainId } from "@/constant/chains";
+import {
+  usePendingTransactions,
+  useApprovedNotDepositedChains,
+} from "@/stores/operationsStore";
 
 interface ChainOperationState {
   isOperating: boolean;
@@ -49,7 +53,6 @@ export function ApprovalSection({
 }: ApprovalSectionProps) {
   const [isManualMode, setIsManualMode] = useState(true);
 
-  // Calculate total gas cost for when all chains are approved
   const totalGasCost = gasEstimates
     .reduce(
       (total, estimate) =>
@@ -57,6 +60,97 @@ export function ApprovalSection({
       0
     )
     .toString();
+
+  const pendingByChain = usePendingTransactions();
+  const oldPartialSuccess = useApprovedNotDepositedChains();
+
+  const gasEstimateChainIds = useMemo(
+    () => new Set(gasEstimates.map((e) => e.chainId)),
+    [gasEstimates]
+  );
+
+  console.log("pendingByChain", pendingByChain);
+  console.log("oldPartialSuccess", oldPartialSuccess);
+  console.log("gasEstimateChainIds", gasEstimateChainIds);
+
+  const pendingOnlyChainIds = useMemo(() => {
+    const ids = Object.keys(pendingByChain).map(
+      (id) => Number(id) as SupportedChainId
+    );
+    return ids.filter((chainId) => !gasEstimateChainIds.has(chainId));
+  }, [pendingByChain, gasEstimateChainIds]);
+
+  // Also include chains that have any transaction history in the store,
+  // even if none are currently pending and no amount was entered.
+  const historyOnlyChainIds = useMemo(() => {
+    // Only show truly old partial-success chains not part of current inputs
+    return Array.from(oldPartialSuccess).filter(
+      (chainId) => !gasEstimateChainIds.has(chainId)
+    );
+  }, [oldPartialSuccess, gasEstimateChainIds]);
+
+  console.log("pendingOnlyChainIds", pendingOnlyChainIds);
+  console.log("historyOnlyChainIds", historyOnlyChainIds);
+
+  const pendingPlaceholderEstimates: GasEstimateData[] = useMemo(() => {
+    return pendingOnlyChainIds.map((chainId) => {
+      const pending = (pendingByChain as any)[chainId];
+      const hasDepositPending = Boolean(pending?.depositPending);
+      const placeholder: GasEstimateData = {
+        chainId,
+        approvalGas: null,
+        depositGas: null,
+        totalGasCost: 0n,
+        totalGasCostFormatted: "0",
+        isLoading: false,
+        error: null,
+        // If a deposit is pending, we must have had allowance already
+        hasEnoughAllowance: hasDepositPending,
+        needsApproval: false,
+        // Keep as loading to hide gas/action UI while still showing status/history
+        allowanceState: "loading",
+        canAffordGas: true,
+        nativeBalance: 0n,
+        approvalSimulation: null,
+        depositSimulation: null,
+      };
+      return placeholder;
+    });
+  }, [pendingOnlyChainIds, pendingByChain]);
+
+  const historyPlaceholderEstimates: GasEstimateData[] = useMemo(() => {
+    return historyOnlyChainIds.map((chainId) => {
+      const placeholder: GasEstimateData = {
+        chainId,
+        approvalGas: null,
+        depositGas: null,
+        totalGasCost: 0n,
+        totalGasCostFormatted: "0",
+        isLoading: false,
+        error: null,
+        hasEnoughAllowance: false,
+        needsApproval: false,
+        allowanceState: "loading",
+        canAffordGas: true,
+        nativeBalance: 0n,
+        approvalSimulation: null,
+        depositSimulation: null,
+      };
+      return placeholder;
+    });
+  }, [historyOnlyChainIds]);
+
+  const storeEstimates = useMemo(() => {
+    // When there are new input-based estimates, we should avoid duplicating
+    // those same chains in the store section. If the user is actively inputting,
+    // we show only historical chains not part of the current inputs.
+    const hasNewInputs = gasEstimates.length > 0;
+    if (hasNewInputs) {
+      return historyPlaceholderEstimates;
+    }
+    return [...pendingPlaceholderEstimates, ...historyPlaceholderEstimates];
+  }, [gasEstimates, pendingPlaceholderEstimates, historyPlaceholderEstimates]);
+  console.log("storeEstimates", storeEstimates);
 
   return (
     <div className="border-t border-teal-500/30 pt-5 space-y-4">
@@ -134,6 +228,7 @@ export function ApprovalSection({
         </div>
       )}
 
+      {/* New transactions from current input (fresh run) */}
       <div className="space-y-4 bg-gradient-to-r from-black/30 to-gray-900/30 p-4 rounded-lg border border-teal-500/20 backdrop-blur-sm">
         {gasEstimates.map((estimate) => (
           <ChainApprovalCard
@@ -150,6 +245,39 @@ export function ApprovalSection({
           />
         ))}
       </div>
+
+      {/* Previous transactions from store (pending or history) */}
+      {storeEstimates.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-gray-400 font-mono text-xs uppercase tracking-widest font-medium">
+              Previous Activity
+            </h3>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-teal-400 rounded-full"></div>
+              <span className="text-teal-400 font-mono text-sm font-bold uppercase tracking-wide">
+                From History
+              </span>
+            </div>
+          </div>
+          <div className="space-y-4 bg-gradient-to-r from-black/30 to-gray-900/30 p-4 rounded-lg border border-teal-500/20 backdrop-blur-sm">
+            {storeEstimates.map((estimate) => (
+              <ChainApprovalCard
+                key={`store-${estimate.chainId}`}
+                estimate={estimate}
+                isGasLoading={isGasLoading}
+                isManualMode={isManualMode}
+                onApprove={onApprove}
+                onDeposit={onDeposit}
+                onRetry={onRetry}
+                getChainState={getChainState}
+                getChainTransactions={getChainTransactions}
+                clearError={clearError}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {allAllowancesLoaded && needsApprovalOnAnyChain && !isManualMode && (
         <div className="pt-4">

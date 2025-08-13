@@ -21,6 +21,7 @@ import {
 import {
   useOperationsStore,
   getChainTransactions,
+  initializeOperationsStore,
 } from "@/stores/operationsStore";
 
 interface QueueConfig {
@@ -50,6 +51,31 @@ const DEFAULT_QUEUE_CONFIG: Required<QueueConfig> = {
   intervalCap: Number(process.env.NEXT_PUBLIC_QUEUE_INTERVAL_CAP) || 1,
 };
 
+/**
+ * Orchestrates multi-chain approval/deposit operations with a background queue.
+ *
+ * Flow overview
+ * 1) Queueing
+ *    - queueApproval(chainId, amount) → enqueue approval
+ *    - queueDeposit(chainId, amount) → enqueue deposit
+ *    - queueApprovalAndDeposit(chainId, amount) → sequences both (approval then deposit) for a chain
+ *    - queueBatchOperations([{ chainId, amount }, ...]) → sequences operations per chain in order
+ *
+ * 2) Execution (per operation)
+ *    - setChainOperationState(chainId, "approval" | "deposit") before wallet confirm
+ *    - writeContract returns hash → setChainOperationState(chainId, "confirming", hash); storeTransactionHash
+ *    - waitForTransactionReceipt success → storeConfirmedTransactionHash; setChainCompleted
+ *    - approval success also calls setLastApprovedAmount for future allowance checks
+ *    - on error/cancel → clearTransactionHash; setChainError; in-flight cleared
+ *
+ * 3) Resume after refresh
+ *    - initializeOperationsStore() on mount → reconcilePendingTransactions()
+ *      marks chains as confirming if unconfirmed hashes are found in storage
+ *
+ * Queue
+ * - PQueue controls concurrency and optional rate limiting (interval/intervalCap)
+ * - updateProcessingState keeps a derived isProcessingQueue flag in the store
+ */
 export function useMultiChainOperations(
   config?: UseMultiChainOperationsConfig
 ): UseMultiChainOperationsReturn {
@@ -134,6 +160,15 @@ export function useMultiChainOperations(
     };
   }, [operationQueue]);
 
+  // Initialize pending transaction reconciliation on mount
+  useEffect(() => {
+    initializeOperationsStore();
+  }, []);
+
+  /**
+   * Ensures the wallet is on the target chain before submitting a tx.
+   * - Throws a user-friendly error when user rejects network switch.
+   */
   const ensureChainSwitch = useCallback(
     async (targetChainId: SupportedChainId) => {
       try {
@@ -152,6 +187,22 @@ export function useMultiChainOperations(
     [currentChainId, switchChainAsync]
   );
 
+  /**
+   * Execute a single chain operation (approval | deposit) end-to-end.
+   *
+   * Steps
+   * 1) Pre checks (address, abort signal) and set in-flight chain
+   * 2) Validate contracts/amount and optionally simulate for clearer failures
+   * 3) setChainOperationState(chainId, operationType) before wallet confirm
+   * 4) writeContract → hash
+   *    - setChainOperationState(chainId, "confirming", hash)
+   *    - storeTransactionHash(chainId, operationType, hash)
+   * 5) waitForTransactionReceipt(hash)
+   *    - on success: storeConfirmedTransactionHash; setChainCompleted
+   *    - if approval: setLastApprovedAmount
+   *    - invalidate allowance/balance queries
+   * 6) on error/cancel: clearTransactionHash; setChainError; clear in-flight
+   */
   const executeChainOperation = useCallback(
     async (
       chainId: SupportedChainId,
@@ -339,6 +390,11 @@ export function useMultiChainOperations(
     ]
   );
 
+  /**
+   * Enqueue a single approval for a chain.
+   * - De-dupes by (chainId, type, amount).
+   * - Job sets priority higher than deposit to ensure correct sequencing.
+   */
   const queueApproval = useCallback(
     (chainId: SupportedChainId, amount: string) => {
       if (isAlreadyQueued(chainId, "approval", amount)) return;
@@ -373,6 +429,10 @@ export function useMultiChainOperations(
     ]
   );
 
+  /**
+   * Enqueue a single deposit for a chain.
+   * - De-dupes by (chainId, type, amount).
+   */
   const queueDeposit = useCallback(
     (chainId: SupportedChainId, amount: string) => {
       if (isAlreadyQueued(chainId, "deposit", amount)) return;
@@ -407,6 +467,11 @@ export function useMultiChainOperations(
     ]
   );
 
+  /**
+   * Enqueue approval then deposit for a chain.
+   * - Skips approval if lastApprovedAmount >= amountWei.
+   * - Runs both steps within a single PQueue job to keep order.
+   */
   const queueApprovalAndDeposit = useCallback(
     (chainId: SupportedChainId, amount: string) => {
       console.log(
@@ -465,6 +530,10 @@ export function useMultiChainOperations(
     [operationQueue, executeChainOperation, addToQueue, removeFromQueue]
   );
 
+  /**
+   * Enqueue many chains; within each chain the order is preserved
+   * (approval → deposit), across chains priority staggers by index.
+   */
   const queueBatchOperations = useCallback(
     (chainAmounts: Array<{ chainId: SupportedChainId; amount: string }>) => {
       chainAmounts.forEach(({ chainId, amount }, chainIndex) => {
@@ -537,11 +606,18 @@ export function useMultiChainOperations(
 
   const clearStoreQueue = useOperationsStore((s) => s.clearQueue);
 
+  /**
+   * Clear all queued jobs and mirror that in the store.
+   */
   const clearQueue = useCallback(() => {
     operationQueue.clear();
     clearStoreQueue();
   }, [operationQueue, clearStoreQueue]);
 
+  /**
+   * Abort any in-flight work, clear queue/state, and pause the queue.
+   * Resumes the queue after cleanup for future operations.
+   */
   const cancelQueue = useCallback(() => {
     // Cancel any ongoing operations
     abortersRef.current.forEach((controller) => controller.abort());
