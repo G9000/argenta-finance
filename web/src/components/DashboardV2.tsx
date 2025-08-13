@@ -10,6 +10,7 @@ import { useMultiChainOperations } from "@/hooks/useMultiChainOperations";
 import {
   useIsProcessingQueue,
   useIsAnyChainOperating,
+  useHasPendingTransactions,
   useOperationsStore,
   getChainState,
   getChainTransactions,
@@ -50,12 +51,11 @@ export function DashboardV2() {
     queueApprovalAndDeposit,
   } = useMultiChainOperations();
 
-  // Import store hooks for better performance
   const isProcessingQueue = useIsProcessingQueue();
   const isAnyChainOperating = useIsAnyChainOperating();
+  const hasPendingTransactions = useHasPendingTransactions();
   const store = useOperationsStore();
 
-  // Store actions
   const clearError = store.clearChainError;
 
   // Keep selectedChainId in sync especially when switching from the nav
@@ -65,20 +65,26 @@ export function DashboardV2() {
     }
   }, [chainId]);
 
+  const checkIfCanProcessTransaction = () => {
+    console.log("isProcessingQueue", isProcessingQueue);
+    console.log("isAnyChainOperating", isAnyChainOperating);
+    console.log("hasPendingTransactions", hasPendingTransactions);
+    if (isProcessingQueue || isAnyChainOperating || hasPendingTransactions)
+      return false;
+    return true;
+  };
+
   const handleUnifiedDeposit = async () => {
     const validAmounts = getValidChainAmounts();
+    console.log("validAmounts", validAmounts);
     if (validAmounts.length === 0) return;
 
-    logger.debug("Starting deposit for", validAmounts.length, "chains");
-
     try {
-      // Clear any existing queue
-      clearQueue();
+      if (!checkIfCanProcessTransaction()) return;
+      // clearQueue();
+      // queueBatchOperations(validAmounts);
 
-      // Queue all operations - processing starts automatically
-      queueBatchOperations(validAmounts);
-
-      logger.debug("Unified deposit operations queued");
+      logger.debug("Deposit operations added to the queued");
     } catch (error) {
       logger.error("Failed to queue unified deposit:", error);
     }

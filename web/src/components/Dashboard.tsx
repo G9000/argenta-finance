@@ -14,7 +14,7 @@ import { useBatchDepositValidation } from "@/hooks";
 import { useBatchDeposit } from "@/hooks/useBatchDeposit";
 import { useInputValidation } from "@/hooks/useInputValidation";
 import { OperationTabs } from "./OperationTabs";
-import { DepositInput } from "./DepositInput";
+import { DepositInputV2 } from "./ui/DepositInputV2";
 import { BatchOperationProgress } from "./BatchOperationProgress";
 import { PortfolioTabs } from "./PortfolioTabs";
 import { TransactionHistory } from "./TransactionHistory";
@@ -58,7 +58,6 @@ export function Dashboard() {
   const {
     validChains,
     canProceed,
-    totalApprovals,
     isLoading: _validationLoading,
   } = useInputValidation(inputsForValidation);
 
@@ -76,7 +75,7 @@ export function Dashboard() {
   const [showDepositProgress, setShowDepositProgress] = useState(false);
   const [depositCompletedSuccessfully, setDepositCompletedSuccessfully] =
     useState(false);
-  const [executeLocked, setExecuteLocked] = useState(false);
+  const [_executeLocked, setExecuteLocked] = useState(false);
 
   const [lastAttemptedAmounts, setLastAttemptedAmounts] = useState<
     Record<SupportedChainId, string>
@@ -110,11 +109,7 @@ export function Dashboard() {
 
         if (hasSuccessfulDeposits) {
           queryClient.invalidateQueries({
-            queryKey: ["readContract"],
-          });
-
-          queryClient.invalidateQueries({
-            queryKey: ["readContracts"],
+            predicate: (q) => (q as any).meta?.scopeKey === "balances",
           });
 
           logger.debug("Invalidated balance queries after successful deposits");
@@ -144,11 +139,7 @@ export function Dashboard() {
 
       if (result.status === "success") {
         queryClient.invalidateQueries({
-          queryKey: ["readContract"],
-        });
-
-        queryClient.invalidateQueries({
-          queryKey: ["readContracts"],
+          predicate: (q) => (q as any).meta?.scopeKey === "balances",
         });
 
         logger.debug(
@@ -170,7 +161,6 @@ export function Dashboard() {
     }
 
     logger.debug("Starting deposit for", validChains.length, "chains");
-    logger.debug("Total approvals needed:", totalApprovals);
 
     // Convert validated chains to execution format
     const chainAmounts = validChains.map(({ chainId, amount, amountWei }) => ({
@@ -208,8 +198,9 @@ export function Dashboard() {
         const result = await retryChain(r.chainId as SupportedChainId, amount);
         logger.debug(`Retry-all: chain ${r.chainId} -> ${result.status}`);
         if (result.status === "success") {
-          queryClient.invalidateQueries({ queryKey: ["readContract"] });
-          queryClient.invalidateQueries({ queryKey: ["readContracts"] });
+          queryClient.invalidateQueries({
+            predicate: (q) => (q as any).meta?.scopeKey === "balances",
+          });
         }
       } catch (err) {
         logger.error(`Retry-all: chain ${r.chainId} failed`, err);
@@ -217,7 +208,7 @@ export function Dashboard() {
     }
   };
 
-  const handleResetAll = () => {
+  const _handleResetAll = () => {
     try {
       cancelDeposit();
     } catch {}
@@ -257,8 +248,8 @@ export function Dashboard() {
         <OperationTabs activeTab={activeTab} onTabChange={setActiveTab}>
           {activeTab === OPERATION_TYPES.DEPOSIT ? (
             <div className="space-y-4">
-              <DepositInput
-                batchState={batchState}
+              <DepositInputV2
+                inputs={batchState.inputs}
                 onAmountChange={updateDepositAmount}
                 onMaxClick={setDepositMaxAmount}
                 onExecuteDeposit={handleUnifiedDeposit}
@@ -267,14 +258,6 @@ export function Dashboard() {
                 }
                 isProcessing={isExecuting || depositProgress.isRetrying}
                 selectedChainId={selectedChainId}
-                canRetryAll={
-                  !isExecuting &&
-                  !depositProgress.isRetrying &&
-                  depositResults.some((r) => r.status !== "success")
-                }
-                onRetryAllFailed={handleRetryAllFailed}
-                onReset={handleResetAll}
-                executeLocked={executeLocked}
               />
             </div>
           ) : (

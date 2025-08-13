@@ -4,6 +4,7 @@ import Image from "next/image";
 import { getChainLogo } from "@/lib/tokens";
 import { getChainName, type SupportedChainId } from "@/constant/chains";
 import type { GasEstimateData } from "@/hooks/useGasEstimation";
+import { ALLOWANCE_STATE } from "@/hooks/useAllowanceCheck";
 import { getTransactionUrl, shortenTxHash } from "@/lib/explorer";
 import {
   useChainState,
@@ -20,7 +21,6 @@ interface ChainOperationState {
 
 interface ChainApprovalCardProps {
   estimate: GasEstimateData;
-  isGasLoading: boolean;
   isManualMode: boolean;
   onApprove?: (chainId: number) => void;
   onDeposit?: (chainId: number) => void;
@@ -36,7 +36,6 @@ interface ChainApprovalCardProps {
 
 export function ChainApprovalCard({
   estimate,
-  isGasLoading,
   isManualMode,
   onApprove,
   onDeposit,
@@ -46,8 +45,7 @@ export function ChainApprovalCard({
   clearError: propClearError,
 }: ChainApprovalCardProps) {
   const chainLogo = getChainLogo(estimate.chainId);
-  const approvalCost = estimate.approvalGas?.estimatedCostFormatted || "0";
-  const depositCost = estimate.depositGas?.estimatedCostFormatted || "0";
+  // Gas costs are no longer estimated pre-approval
 
   // Use store hooks with prop fallbacks for backward compatibility
   const storeChainState = useChainState(estimate.chainId);
@@ -160,19 +158,19 @@ export function ChainApprovalCard({
     }
 
     switch (estimate.allowanceState) {
-      case "loading":
+      case ALLOWANCE_STATE.LOADING:
         return {
           dot: "bg-blue-400 animate-pulse",
           text: "text-blue-400",
           label: "CHECKING",
         };
-      case "error":
+      case ALLOWANCE_STATE.ERROR:
         return {
           dot: "bg-red-400",
           text: "text-red-400",
           label: "ERROR",
         };
-      case "loaded":
+      case ALLOWANCE_STATE.LOADED:
         if (actuallyCompleted) {
           return {
             dot: "bg-teal-400",
@@ -227,50 +225,24 @@ export function ChainApprovalCard({
         </div>
       </div>
 
-      {estimate.allowanceState === "loaded" && !actuallyCompleted && (
-        <div className="flex items-center justify-between py-2 px-3 rounded-md bg-black/20">
-          <div className="flex items-center gap-2">
-            <span className="text-orange-400 text-sm">🔥</span>
-            <span className="text-gray-400 font-mono text-xs uppercase tracking-wide">
-              Estimated Gas
-            </span>
-          </div>
-          <div className="text-right">
-            {isGasLoading ? (
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 border border-teal-400 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-teal-400 font-mono text-xs">
-                  Estimating...
-                </span>
+      {/* Only show gas UI for chains that are already approved and ready for deposit */}
+      {estimate.allowanceState === ALLOWANCE_STATE.LOADED &&
+        estimate.hasEnoughAllowance &&
+        !estimate.needsApproval &&
+        !actuallyCompleted && (
+          <div className="flex items-center justify-between py-2 px-3 rounded-md bg-black/20">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 font-mono text-xs uppercase tracking-wide">
+                Gas Cost
+              </span>
+            </div>
+            <div className="text-right">
+              <div className="text-gray-400 font-mono text-xs">
+                Calculated at execution
               </div>
-            ) : estimate.error ? (
-              (() => {
-                console.warn(
-                  `Gas estimation failed for chain ${estimate.chainId}:`,
-                  estimate.error
-                );
-                return (
-                  <span className="text-yellow-400 font-mono text-xs">
-                    Unable to estimate
-                  </span>
-                );
-              })()
-            ) : (
-              <>
-                <div className="text-white font-mono text-sm font-medium">
-                  {parseFloat(estimate.totalGasCostFormatted).toFixed(4)} ETH
-                </div>
-                <div className="text-gray-400 font-mono text-xs">
-                  {estimate.needsApproval && (
-                    <>Approval: {parseFloat(approvalCost).toFixed(4)} + </>
-                  )}
-                  Deposit: {parseFloat(depositCost).toFixed(4)}
-                </div>
-              </>
-            )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {(approvalTxHash || depositTxHash) && (
         <div className="flex items-center justify-between py-2 px-3 rounded-md bg-black/20">
@@ -330,7 +302,7 @@ export function ChainApprovalCard({
       )}
 
       {isManualMode &&
-        (estimate.allowanceState === "loaded" || hasError) &&
+        (estimate.allowanceState === ALLOWANCE_STATE.LOADED || hasError) &&
         !actuallyCompleted && (
           <div className="pt-3">
             <button
@@ -388,7 +360,7 @@ export function ChainApprovalCard({
           </div>
         )}
 
-      {estimate.allowanceState === "error" && (
+      {estimate.allowanceState === ALLOWANCE_STATE.ERROR && (
         <div className="pt-2">
           <div className="w-full py-2 px-4 rounded-md font-mono text-sm font-medium uppercase tracking-wide bg-red-500/20 text-red-400 border border-red-500/30 text-center">
             Allowance Check Failed

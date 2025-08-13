@@ -13,6 +13,7 @@ import { getVaultAddress, getUsdcAddress } from "@/constant/contracts";
 import { parseUnits, formatUnits } from "viem";
 import { erc20Abi } from "viem";
 import { simpleVaultAbi } from "@/generated/wagmi";
+import { ALLOWANCE_STATE, type AllowanceState } from "./useAllowanceCheck";
 
 const GAS_BUFFER_PERCENT = 20n;
 
@@ -33,7 +34,7 @@ export interface GasEstimateData {
   error: string | null;
   hasEnoughAllowance: boolean;
   needsApproval: boolean;
-  allowanceState: "loading" | "loaded" | "error";
+  allowanceState: AllowanceState;
   canAffordGas: boolean;
   nativeBalance: bigint;
   approvalSimulation: any;
@@ -84,25 +85,25 @@ function useChainGasEstimation(
     functionName: "allowance",
     args: address && vaultAddress ? [address, vaultAddress] : undefined,
     chainId,
-    query: { enabled: enabled && !!address },
+    query: { enabled: enabled && !!address, meta: { scopeKey: "allowance" } },
   });
 
   // Determine allowance state
-  const allowanceState: "loading" | "loaded" | "error" = allowanceLoading
-    ? "loading"
+  const allowanceState: AllowanceState = allowanceLoading
+    ? ALLOWANCE_STATE.LOADING
     : allowanceError
-    ? "error"
-    : "loaded";
+    ? ALLOWANCE_STATE.ERROR
+    : ALLOWANCE_STATE.LOADED;
 
   // Only calculate approval logic when allowance is actually loaded
   const hasEnoughAllowance =
-    allowanceState === "loaded" &&
+    allowanceState === ALLOWANCE_STATE.LOADED &&
     currentAllowance !== undefined &&
     currentAllowance >= amountWei;
 
   const needsApproval =
     amountWei > 0n &&
-    allowanceState === "loaded" &&
+    allowanceState === ALLOWANCE_STATE.LOADED &&
     currentAllowance !== undefined &&
     currentAllowance < amountWei;
 
@@ -110,7 +111,7 @@ function useChainGasEstimation(
   const { data: nativeBalance } = useBalance({
     address,
     chainId,
-    query: { enabled: enabled && !!address },
+    query: { enabled: enabled && !!address, meta: { scopeKey: "balances" } },
   });
 
   const { data: gasPrice, isLoading: gasPriceLoading } = useGasPrice({
@@ -312,13 +313,13 @@ export function useGasEstimation({
 
     // Allowance state helpers
     const hasAllowanceLoading = gasEstimates.some(
-      (estimate) => estimate.allowanceState === "loading"
+      (estimate) => estimate.allowanceState === ALLOWANCE_STATE.LOADING
     );
     const hasAllowanceErrors = gasEstimates.some(
-      (estimate) => estimate.allowanceState === "error"
+      (estimate) => estimate.allowanceState === ALLOWANCE_STATE.ERROR
     );
     const allAllowancesLoaded = gasEstimates.every(
-      (estimate) => estimate.allowanceState === "loaded"
+      (estimate) => estimate.allowanceState === ALLOWANCE_STATE.LOADED
     );
 
     const canProceedWithDeposit =

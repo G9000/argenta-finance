@@ -324,14 +324,9 @@ export function useMultiChainOperations(
 
         try {
           queryClient.invalidateQueries({
-            predicate: (query) => {
-              const queryKey = query.queryKey as any[];
-              return (
-                Array.isArray(queryKey) &&
-                (queryKey.includes("allowance") ||
-                  queryKey.includes("balance") ||
-                  queryKey.includes("vaultBalance"))
-              );
+            predicate: (q) => {
+              const scopeKey = (q as any).meta?.scopeKey;
+              return scopeKey === "allowance" || scopeKey === "balances";
             },
           });
         } catch {}

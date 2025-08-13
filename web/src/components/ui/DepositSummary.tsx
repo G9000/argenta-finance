@@ -21,7 +21,6 @@ interface DepositSummaryProps {
   totalAmount: string;
   gasEstimates?: GasEstimateData[];
   totalGasCost?: string;
-  isGasLoading?: boolean;
   gasError?: boolean;
   needsApprovalOnAnyChain?: boolean;
   allChainsApproved?: boolean;
@@ -45,7 +44,6 @@ export function DepositSummary({
   totalAmount,
   gasEstimates = [],
   totalGasCost: _totalGasCost = "0",
-  isGasLoading = false,
   gasError: _gasError = false,
   needsApprovalOnAnyChain = false,
   allChainsApproved: _allChainsApproved = true,
@@ -76,7 +74,6 @@ export function DepositSummary({
 
         <ApprovalSection
           gasEstimates={gasEstimates}
-          isGasLoading={isGasLoading}
           needsApprovalOnAnyChain={needsApprovalOnAnyChain}
           hasAllowanceLoading={hasAllowanceLoading}
           hasAllowanceErrors={hasAllowanceErrors}

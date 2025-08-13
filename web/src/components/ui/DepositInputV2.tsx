@@ -14,7 +14,7 @@ import {
   getChainTransactions,
 } from "@/stores/operationsStore";
 import { useInputValidation } from "@/hooks/useInputValidation";
-import { useGasEstimation } from "@/hooks/useGasEstimation";
+import { useAllowanceCheck } from "@/hooks/useAllowanceCheck";
 import { ChainInput, ChainDropdown, DepositSummary } from "@/components/ui";
 import { formatUnits, parseUnits } from "viem/utils";
 
@@ -132,7 +132,7 @@ export function DepositInputV2({
     return Array.from(idsFromAmounts);
   }, [activeChainIds, chainsWithAnyTx]);
 
-  const chainAmountsForGas = Array.from(activeChains)
+  const chainAmountsForAllowance = Array.from(activeChains)
     .map((chainId) => ({
       chainId,
       amount: inputs[chainId] || "",
@@ -142,19 +142,39 @@ export function DepositInputV2({
     );
 
   const {
-    gasEstimates,
-    totalGasCostFormattedETH,
-    isLoading: isGasLoading,
-    hasErrors: hasGasErrors,
+    allowanceData,
     needsApprovalOnAnyChain,
     allChainsApproved,
     hasAllowanceLoading,
     hasAllowanceErrors,
     allAllowancesLoaded,
-  } = useGasEstimation({
-    chainAmounts: chainAmountsForGas,
+  } = useAllowanceCheck({
+    chainAmounts: chainAmountsForAllowance,
     enabled: hasAnyAmount && address !== undefined,
   });
+
+  // Create mock gas estimates for compatibility with existing UI components
+  const gasEstimates = useMemo(() => {
+    return allowanceData.map((allowance) => ({
+      chainId: allowance.chainId,
+      approvalGas: null,
+      depositGas: null,
+      totalGasCost: 0n,
+      totalGasCostFormatted: "0",
+      isLoading: false,
+      error: null,
+      hasEnoughAllowance: allowance.hasEnoughAllowance,
+      needsApproval: allowance.needsApproval,
+      allowanceState: allowance.allowanceState,
+      canAffordGas: true, // Assume user can afford gas since we're not checking it anymore
+      nativeBalance: 0n,
+      approvalSimulation: null,
+      depositSimulation: null,
+    }));
+  }, [allowanceData]);
+
+  const hasGasErrors = false; // No gas errors since we don't estimate gas
+  const totalGasCostFormattedETH = "0"; // No gas cost estimation
 
   const availableChains = SUPPORTED_CHAINS.filter(
     (chainId) => !activeChains.has(chainId)
@@ -312,7 +332,6 @@ export function DepositInputV2({
         totalAmount={totalAmount}
         gasEstimates={gasEstimates}
         totalGasCost={totalGasCostFormattedETH}
-        isGasLoading={isGasLoading}
         gasError={hasGasErrors}
         needsApprovalOnAnyChain={needsApprovalOnAnyChain}
         allChainsApproved={allChainsApproved}

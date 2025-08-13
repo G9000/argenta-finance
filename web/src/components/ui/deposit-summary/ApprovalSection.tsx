@@ -19,7 +19,6 @@ interface ChainOperationState {
 
 interface ApprovalSectionProps {
   gasEstimates: GasEstimateData[];
-  isGasLoading: boolean;
   needsApprovalOnAnyChain: boolean;
   hasAllowanceLoading: boolean;
   hasAllowanceErrors: boolean;
@@ -38,7 +37,6 @@ interface ApprovalSectionProps {
 
 export function ApprovalSection({
   gasEstimates,
-  isGasLoading,
   needsApprovalOnAnyChain,
   hasAllowanceLoading,
   hasAllowanceErrors,
@@ -53,13 +51,7 @@ export function ApprovalSection({
 }: ApprovalSectionProps) {
   const [isManualMode, setIsManualMode] = useState(true);
 
-  const totalGasCost = gasEstimates
-    .reduce(
-      (total, estimate) =>
-        total + parseFloat(estimate.totalGasCostFormatted || "0"),
-      0
-    )
-    .toString();
+  // Gas estimation has been removed for faster pre-approval experience
 
   const pendingByChain = usePendingTransactions();
   const oldPartialSuccess = useApprovedNotDepositedChains();
@@ -141,16 +133,12 @@ export function ApprovalSection({
   }, [historyOnlyChainIds]);
 
   const storeEstimates = useMemo(() => {
-    // When there are new input-based estimates, we should avoid duplicating
-    // those same chains in the store section. If the user is actively inputting,
-    // we show only historical chains not part of the current inputs.
     const hasNewInputs = gasEstimates.length > 0;
     if (hasNewInputs) {
       return historyPlaceholderEstimates;
     }
     return [...pendingPlaceholderEstimates, ...historyPlaceholderEstimates];
   }, [gasEstimates, pendingPlaceholderEstimates, historyPlaceholderEstimates]);
-  console.log("storeEstimates", storeEstimates);
 
   return (
     <div className="border-t border-teal-500/30 pt-5 space-y-4">
@@ -206,24 +194,13 @@ export function ApprovalSection({
       {allAllowancesLoaded && !needsApprovalOnAnyChain && (
         <div className="flex items-center justify-between">
           <h3 className="text-gray-300 font-mono text-sm uppercase tracking-wider">
-            Gas Fees
+            Ready to Execute
           </h3>
           <div className="flex items-center gap-2">
-            {isGasLoading ? (
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-teal-400 font-mono text-sm">
-                  Calculating...
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-orange-400 font-mono text-lg">🔥</span>
-                <span className="text-white font-mono text-lg font-semibold">
-                  {parseFloat(totalGasCost).toFixed(4)} ETH
-                </span>
-              </div>
-            )}
+            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+            <span className="text-green-400 font-mono text-sm font-bold uppercase tracking-wide">
+              READY
+            </span>
           </div>
         </div>
       )}
@@ -234,7 +211,6 @@ export function ApprovalSection({
           <ChainApprovalCard
             key={estimate.chainId}
             estimate={estimate}
-            isGasLoading={isGasLoading}
             isManualMode={isManualMode}
             onApprove={onApprove}
             onDeposit={onDeposit}
@@ -265,7 +241,6 @@ export function ApprovalSection({
               <ChainApprovalCard
                 key={`store-${estimate.chainId}`}
                 estimate={estimate}
-                isGasLoading={isGasLoading}
                 isManualMode={isManualMode}
                 onApprove={onApprove}
                 onDeposit={onDeposit}
@@ -306,9 +281,8 @@ export function ApprovalSection({
 
       {allAllowancesLoaded && !needsApprovalOnAnyChain && (
         <div className="text-[10px] text-gray-500 leading-relaxed">
-          <span className="uppercase tracking-wide">Note:</span> Gas fees are
-          estimates and may vary based on network conditions. Actual costs may
-          differ.
+          <span className="uppercase tracking-wide">Note:</span> Gas fees will
+          be calculated and displayed during transaction execution.
         </div>
       )}
     </div>
